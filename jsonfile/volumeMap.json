@@ -1,0 +1,702 @@
+{
+  "INV-T-001": {
+    "20000.0": [
+      {
+        "VolMother": 30.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 20000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 0.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 250.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 15.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 20000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 22.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 100.0,
+        "FinalConcUnit": "uM"
+      }
+    ],
+    "10000.0": [
+      {
+        "VolMother": 20.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 5.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 100.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 10.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 29.55,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 31.605562579013906,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 5.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 57.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 10.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 3.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 115.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 3.164556962025317,
+        "FinalConcUnit": "uM"
+      }
+    ],
+    "100.0": [
+      {
+        "VolMother": 20.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 5.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 1.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 10.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 29.56,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 0.31597573306370075,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 5.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 57.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 0.1,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 5.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 193.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 0.03156565656565657,
+        "FinalConcUnit": "uM"
+      }
+    ]
+  },
+  "INV-T-006-Acan": {
+    "20000.0": [
+      {
+        "VolMother": 30.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 20000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 0.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 250.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 15.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 20000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 22.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 100.0,
+        "FinalConcUnit": "uM"
+      }
+    ],
+    "10000.0": [
+      {
+        "VolMother": 20.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 5.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 100.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 10.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 29.55,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 31.605562579013906,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 5.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 57.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 10.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 3.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 115.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 3.164556962025317,
+        "FinalConcUnit": "uM"
+      }
+    ],
+    "100.0": [
+      {
+        "VolMother": 20.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 5.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 1.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 10.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 29.56,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 0.31597573306370075,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 5.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 57.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 0.1,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 5.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 193.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 0.03156565656565657,
+        "FinalConcUnit": "uM"
+      }
+    ]
+  },
+  "INV-T-005": {
+    "20000.0": [
+      {
+        "VolMother": 30.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 20000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 0.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 250.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 15.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 20000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 22.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 100.0,
+        "FinalConcUnit": "uM"
+      }
+    ],
+    "10000.0": [
+      {
+        "VolMother": 20.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 5.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 100.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 10.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 29.55,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 31.605562579013906,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 5.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 57.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 10.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 3.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 115.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 3.164556962025317,
+        "FinalConcUnit": "uM"
+      }
+    ],
+    "100.0": [
+      {
+        "VolMother": 20.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 5.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 1.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 10.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 29.56,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 0.31597573306370075,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 5.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 57.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 0.1,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 5.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 193.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 0.03156565656565657,
+        "FinalConcUnit": "uM"
+      }
+    ]
+  },
+  "INV-T-031": {
+    "20000.0": [
+      {
+        "VolMother": 30.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 20000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 0.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 2.0,
+        "volFinal": 200,
+        "FinalConc": 200.0,
+        "FinalConcUnit": "uM"
+      }
+    ],
+    "10000.0": [
+      {
+        "VolMother": 10.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 21.6,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 2.0,
+        "volFinal": 200,
+        "FinalConc": 31.645569620253163,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 5.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 45.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 2.0,
+        "volFinal": 200,
+        "FinalConc": 10.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 3.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 92.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 2.0,
+        "volFinal": 200,
+        "FinalConc": 3.1578947368421053,
+        "FinalConcUnit": "uM"
+      }
+    ],
+    "100.0": [
+      {
+        "VolMother": 15.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 32.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 2.0,
+        "volFinal": 200,
+        "FinalConc": 0.3157894736842105,
+        "FinalConcUnit": "uM"
+      }
+    ],
+    "355.6": [
+      {
+        "VolMother": 26.5,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 355.6,
+        "ConcMotherUnit": "uM",
+        "DMSO": 3.3,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 2.0,
+        "volFinal": 200,
+        "FinalConc": 3.1622147651006713,
+        "FinalConcUnit": "uM"
+      }
+    ]
+  },
+  "INV-T-044": {
+    "100000.0": [
+      {
+        "VolMother": 5.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 26.25,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 200.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 5.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 57.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 100.0,
+        "FinalConcUnit": "uM"
+      }
+    ],
+    "20000.0": [
+      {
+        "VolMother": 30.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 20000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 0.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 250.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 24.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 20000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 6.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 200.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 15.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 20000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 22.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 100.0,
+        "FinalConcUnit": "uM"
+      }
+    ],
+    "10000.0": [
+      {
+        "VolMother": 20.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 5.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 100.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 10.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 29.55,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 31.605562579013906,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 5.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 57.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 10.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 3.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 115.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 3.164556962025317,
+        "FinalConcUnit": "uM"
+      }
+    ],
+    "100.0": [
+      {
+        "VolMother": 20.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 5.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 1.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 10.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 29.56,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 0.31597573306370075,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 5.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 57.5,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 0.1,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 5.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 100.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 193.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 0.2,
+        "volFinal": 16,
+        "FinalConc": 0.03156565656565657,
+        "FinalConcUnit": "uM"
+      }
+    ]
+  },
+  "INV-T-009": {
+    "20000.0": [
+      {
+        "VolMother": 30.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 20000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 0.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 2.0,
+        "volFinal": 200,
+        "FinalConc": 200.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 4.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 20000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 75.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 2.0,
+        "volFinal": 200,
+        "FinalConc": 10.126582278481013,
+        "FinalConcUnit": "uM"
+      }
+    ],
+    "10000.0": [
+      {
+        "VolMother": 10.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 90.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 2.0,
+        "volFinal": 200,
+        "FinalConc": 10.0,
+        "FinalConcUnit": "uM"
+      },
+      {
+        "VolMother": 30.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 10000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 0.0,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 2.0,
+        "volFinal": 200,
+        "FinalConc": 100.0,
+        "FinalConcUnit": "uM"
+      }
+    ],
+    "1000.0": [
+      {
+        "VolMother": 30.0,
+        "VolMotherUnit": "\u00b5l ",
+        "ConcMother": 1000.0,
+        "ConcMotherUnit": "uM",
+        "DMSO": 64.9,
+        "DMSOUnit": "\u00b5l",
+        "volDght": 2.0,
+        "volFinal": 200,
+        "FinalConc": 3.161222339304531,
+        "FinalConcUnit": "uM"
+      }
+    ]
+  }
+}

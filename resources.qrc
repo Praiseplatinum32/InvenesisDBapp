@@ -1,0 +1,21 @@
+<RCC>
+    <qresource prefix="/icon">
+        <file>icon/visible.png</file>
+        <file>icon/cacher.png</file>
+        <file>icon/Sphere.png</file>
+        <file>icon/table.png</file>
+        <file>icon/ajouter.png</file>
+        <file>icon/rafraichir.png</file>
+        <file>icon/chercher.png</file>
+        <file>icon/effacer.png</file>
+        <file>icon/telecharger.png</file>
+        <file>icon/tecan.png</file>
+        <file>icon/dossier.png</file>
+        <file>icon/sauvegarder.png</file>
+        <file>icon/telechargement-de-fichiers.png</file>
+    </qresource>
+    <qresource prefix="/standardjson">
+        <file>jsonfile/standards_matrix.json</file>
+        <file>jsonfile/volumeMap.json</file>
+    </qresource>
+</RCC>

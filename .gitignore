@@ -1,0 +1,11 @@
+# Ignore build and Qt Creator files
+build-*/
+*.user
+*.pro.user
+*.autosave
+*.o
+*.exe
+*.dll
+*.log
+*.obj
+*.qrc.depends
