@@ -91,6 +91,9 @@ private:
     void generateGWLFromJson(const QJsonObject& experimentJson);
 
 
+    void generateExperimentAuxiliaryFiles(const QJsonObject& experimentJson, const QString& outputFolder);
+
+
 };
 
 #endif // TECANWINDOW_H

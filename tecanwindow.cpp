@@ -803,41 +803,94 @@ void TecanWindow::on_actionGenerate_GWL_triggered()
 
 void TecanWindow::generateGWLFromJson(const QJsonObject& experimentJson)
 {
-    // Create generator and generate lines
     GWLGenerator generator;
     QStringList lines = generator.generateTransferCommands(experimentJson);
 
     if (lines.isEmpty()) {
-        QMessageBox::warning(this, "Empty GWL", "No commands generated. Check compound mapping or volume map.");
+        QMessageBox::warning(this, "GWL Generation", "No GWL lines generated. Check mapping or input data.");
         return;
     }
 
-    // Join into GWL string
-    QString gwlContent = lines.join('\n');
+    QString filename = experimentJson["experiment_code"].toString().trimmed();
+    if (filename.isEmpty()) filename = "experiment";
 
-    // Suggest default filename
-    QString defaultName = experimentJson["experiment_code"].toString().trimmed();
-    if (defaultName.isEmpty()) defaultName = "experiment";
-
-    QString filePath = QFileDialog::getSaveFileName(
-        this,
-        "Save GWL File",
-        defaultName + ".gwl",
-        "GWL Files (*.gwl);;All Files (*)"
-        );
-
-    if (filePath.isEmpty())
+    QString gwlPath = QFileDialog::getSaveFileName(this, "Save GWL File", filename + ".gwl", "GWL Files (*.gwl)");
+    if (gwlPath.isEmpty())
         return;
 
-    QFile file(filePath);
+    QFile file(gwlPath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QMessageBox::critical(this, "Error", "Cannot write to file: " + file.errorString());
+        QMessageBox::critical(this, "File Error", "Failed to write GWL file:\n" + file.errorString());
         return;
     }
 
     QTextStream out(&file);
-    out << gwlContent;
+    out << lines.join('\n');
     file.close();
 
-    QMessageBox::information(this, "GWL File", QString("GWL file saved to:\n%1").arg(filePath));
+    // ✅ Generate metadata files in the same directory as the GWL
+    QFileInfo info(gwlPath);
+    QString experimentFolder = info.absolutePath();
+    generateExperimentAuxiliaryFiles(experimentJson, experimentFolder);
+
+    QMessageBox::information(this, "Success", QString("GWL and metadata files saved in:\n%1").arg(experimentFolder));
 }
+
+
+
+
+void TecanWindow::generateExperimentAuxiliaryFiles(const QJsonObject& experimentJson, const QString& outputFolder) {
+    QDir dir(outputFolder);
+    if (!dir.exists()) {
+        QDir().mkpath(outputFolder);
+    }
+
+    auto writeFile = [&](const QString& filename, const QString& content) {
+        QFile file(dir.filePath(filename));
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&file);
+            out << content.trimmed();
+            file.close();
+        } else {
+            qWarning() << "Failed to write file:" << filename << file.errorString();
+        }
+    };
+
+    const QJsonObject standard = experimentJson["standard"].toObject();
+    const QJsonArray testRequests = experimentJson["test_requests"].toArray();
+
+    QString testProtocol = testRequests.first().toObject()["requested_tests"].toString();
+    QString stdSolId = standard["invenesis_solution_ID"].toString();
+    QString stdUsed = standard["Samplealias"].toString();
+    QString stdDilution = "3.16";  // You may make this configurable
+    QString experimentCode = experimentJson["experiment_code"].toString();
+
+    writeFile("volume.txt", "50");
+    writeFile("testProtocol.txt", testProtocol);
+    writeFile("stdDilutionStep.txt", stdDilution);
+    writeFile("stdSolID.txt", stdSolId);
+    writeFile("stdUsed.txt", stdUsed);
+    writeFile("sourceQuadrant.txt", "NA");
+    writeFile("targetQuadrant.txt", "NA");
+    writeFile("layout.txt", "LAY18");
+    writeFile("replicate.txt", "1");
+    writeFile("projets.txt", experimentJson["project_code"].toString());
+    writeFile("NombreMatrixAamener.txt", "01");
+    writeFile("NbMatrixParDght_0.txt", "0");
+    writeFile("NombreDghtAamener.txt", "1");
+    writeFile("MatrixBarcodeIDActuel.txt", standard["Containerbarcode"].toString());
+
+    // ✅ Create ExpEnCours.txt (outside the experiment folder, in fixed location)
+    QString expEnCoursPath = R"(C:\ProgramData\Tecan\EVOware\database\scripts\INVUseByTecan\txtFiles\ExpEnCours.txt)";
+    QFile expFile(expEnCoursPath);
+    if (expFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&expFile);
+        out << experimentCode << "\n";
+        expFile.close();
+    } else {
+        qWarning() << "Failed to write ExpEnCours.txt:" << expFile.errorString();
+    }
+}
+
+
+

@@ -3,6 +3,9 @@
 #include <QJsonDocument>
 #include <QJsonValue>
 #include <QDebug>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QTextStream>
 #include <cmath>
 
 GWLGenerator::GWLGenerator() {}
@@ -10,6 +13,7 @@ GWLGenerator::GWLGenerator() {}
 QStringList GWLGenerator::generateTransferCommands(const QJsonObject& experimentJson)
 {
     QStringList commands;
+    QStringList errors;
 
     const QJsonArray daughterPlates = experimentJson["daughter_plates"].toArray();
     const QJsonArray compounds = experimentJson["compounds"].toArray();
@@ -43,15 +47,20 @@ QStringList GWLGenerator::generateTransferCommands(const QJsonObject& experiment
             QString testId = testMap.value(compound);
 
             double stockConc = cmpData["concentration"].toString().toDouble();
-            QJsonObject volumeEntry = getVolumeEntry(testId, stockConc, volumeMap);
+            QJsonObject volumeEntry = getVolumeEntry(testId, stockConc, volumeMap, &errors);
 
-            if (volumeEntry.isEmpty()) {
-                qWarning() << "⚠️ No match in volume map for compound" << compound << "in test" << testId << "at conc" << stockConc;
-                continue;
-            }
+            if (volumeEntry.isEmpty()) continue;
 
             commands += generateCompoundTransfer(compound, well, plateNum, cmpData, volumeEntry);
         }
+    }
+
+    // Prepend warnings as comments
+    if (!errors.isEmpty()) {
+        commands.prepend("; Warnings:");
+        for (const QString& msg : errors)
+            commands << QString("; %1").arg(msg);
+        commands << "";
     }
 
     return commands;
@@ -96,7 +105,7 @@ QJsonArray GWLGenerator::loadVolumeMapJson()
     return doc.array();
 }
 
-QJsonObject GWLGenerator::getVolumeEntry(const QString& testId, double stockConc, const QJsonArray& volumeMap)
+QJsonObject GWLGenerator::getVolumeEntry(const QString& testId, double stockConc, const QJsonArray& volumeMap, QStringList* errors)
 {
     QJsonObject bestMatch;
     double bestDiff = std::numeric_limits<double>::max();
@@ -112,6 +121,12 @@ QJsonObject GWLGenerator::getVolumeEntry(const QString& testId, double stockConc
             bestDiff = diff;
             bestMatch = obj;
         }
+    }
+
+    if (bestMatch.isEmpty() && errors) {
+        errors->append(QString("No match in volumeMap for test '%1' and stock concentration '%2'")
+                           .arg(testId)
+                           .arg(stockConc));
     }
 
     return bestMatch;
@@ -181,4 +196,24 @@ bool GWLGenerator::isInvT031Test(const QJsonArray& testRequests)
         }
     }
     return false;
+}
+
+bool GWLGenerator::saveToFile(const QStringList& lines, const QString& defaultName, QWidget* parent)
+{
+    QString content = lines.join('\n');
+    QString filePath = QFileDialog::getSaveFileName(parent, "Save GWL File", defaultName + ".gwl", "GWL Files (*.gwl)");
+    if (filePath.isEmpty()) return false;
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QMessageBox::critical(parent, "File Error", file.errorString());
+        return false;
+    }
+
+    QTextStream out(&file);
+    out << content;
+    file.close();
+
+    QMessageBox::information(parent, "Saved", QString("GWL saved to:\n%1").arg(filePath));
+    return true;
 }
