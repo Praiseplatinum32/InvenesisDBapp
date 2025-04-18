@@ -1,69 +1,66 @@
 #include "matrixplatecontainer.h"
 
+// Qt
+#include <QScrollArea>
+#include <QVBoxLayout>
+
+/* ====================================================================== */
+/*                              ctor                                      */
+/* ====================================================================== */
 MatrixPlateContainer::MatrixPlateContainer(QWidget *parent)
     : QWidget(parent)
 {
-    mainLayout = new QVBoxLayout(this);
-    scrollArea = new QScrollArea(this);
-    containerWidget = new QWidget(this);
-    platesLayout = new QVBoxLayout(containerWidget);
-    platesLayout->setAlignment(Qt::AlignTop);
+    mainLayout_   = new QVBoxLayout(this);
+    scrollArea_   = new QScrollArea(this);
+    platesHost_   = new QWidget(this);
+    platesLayout_ = new QVBoxLayout(platesHost_);
 
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setWidget(containerWidget);
+    platesLayout_->setAlignment(Qt::AlignTop | Qt::AlignHCenter);  // centred
+    scrollArea_->setWidgetResizable(true);
+    scrollArea_->setAlignment(Qt::AlignTop | Qt::AlignHCenter);    // centred
+    scrollArea_->setWidget(platesHost_);
 
-    mainLayout->addWidget(scrollArea);
+    mainLayout_->addWidget(scrollArea_);
 }
 
-void MatrixPlateContainer::populatePlates(const QMap<QString, QSet<QString>>& plateData)
+/* ====================================================================== */
+/*                      add / remove plates                               */
+/* ====================================================================== */
+void MatrixPlateContainer::populatePlates(const QMap<QString,QSet<QString>> &data)
 {
     clearPlates();
 
-    for (auto it = plateData.constBegin(); it != plateData.constEnd(); ++it) {
-        const auto& containerId = it.key();
-        auto plate = new MatrixPlateWidget(containerId, this);
+    for (auto it = data.cbegin(); it != data.cend(); ++it)
+    {
+        auto *plate = new MatrixPlateWidget(it.key(), this);
 
-        QSet<QString> cleanedWells;
-        for (const QString& well : it.value()) {
-            cleanedWells.insert(well.trimmed().toUpper());
-        }
+        /* clean well IDs */
+        QSet<QString> wells;
+        for (const QString &w : it.value())
+            wells.insert(w.trimmed().toUpper());
 
-
-        plate->setOccupiedWells(cleanedWells);
-        plate->update();
-        platesLayout->addWidget(plate);
-        platesMap.insert(containerId, plate);
+        plate->setOccupiedWells(wells);
+        platesLayout_->addWidget(plate);
+        plates_.insert(it.key(), plate);
     }
-
-
-    containerWidget->updateGeometry();
-    scrollArea->update();
 }
-
 
 void MatrixPlateContainer::clearPlates()
 {
-    QLayoutItem *child;
-    while ((child = platesLayout->takeAt(0)) != nullptr) {
-        delete child->widget();
-        delete child;
+    while (auto *item = platesLayout_->takeAt(0)) {
+        delete item->widget();
+        delete item;
     }
-    platesMap.clear();
+    plates_.clear();
 }
 
-
-QMap<QString, QSet<QString>> MatrixPlateContainer::getPlateMap() const
+/* ====================================================================== */
+/*                        gather data back                                */
+/* ====================================================================== */
+QMap<QString,QSet<QString>> MatrixPlateContainer::getPlateMap() const
 {
-    QMap<QString, QSet<QString>> map;
-
-    for (int i = 0; i < platesLayout->count(); ++i) {
-        auto plate = qobject_cast<MatrixPlateWidget*>(platesLayout->itemAt(i)->widget());
-        if (plate) {
-            QString containerId = plate->getContainerId();
-            QSet<QString> occupied = plate->getOccupiedWells();  // implement getter in MatrixPlateWidget
-            map[containerId] = occupied;
-        }
-    }
-
-    return map;
+    QMap<QString,QSet<QString>> out;
+    for (auto it = plates_.cbegin(); it != plates_.cend(); ++it)
+        out[it.key()] = it.value()->getOccupiedWells();
+    return out;
 }

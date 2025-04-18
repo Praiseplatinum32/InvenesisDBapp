@@ -1,219 +1,238 @@
 #include "gwlgenerator.h"
+
+// Qt
 #include <QFile>
 #include <QJsonDocument>
-#include <QJsonValue>
-#include <QDebug>
+#include <QJsonArray>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QTextStream>
+#include <QDebug>
 #include <cmath>
 
-GWLGenerator::GWLGenerator() {}
+/* ===================================================================== */
+/*                       public entry point                              */
+/* ===================================================================== */
+GWLGenerator::GWLGenerator() = default;
 
-QStringList GWLGenerator::generateTransferCommands(const QJsonObject& experimentJson)
+QStringList GWLGenerator::generateTransferCommands(const QJsonObject &expJson)
 {
-    QStringList commands;
-    QStringList errors;
+    QStringList cmds, errors;
 
-    const QJsonArray daughterPlates = experimentJson["daughter_plates"].toArray();
-    const QJsonArray compounds = experimentJson["compounds"].toArray();
-    const QJsonArray testRequests = experimentJson["test_requests"].toArray();
-    const QJsonObject selectedStandard = experimentJson["standard"].toObject();
+    const QJsonArray  plates        = expJson["daughter_plates"].toArray();
+    const QJsonArray  compounds     = expJson["compounds"].toArray();
+    const QJsonArray  testReqs      = expJson["test_requests"].toArray();
+    const QJsonObject standardObj   = expJson["standard"].toObject();
 
-    const QString standardBarcode = selectedStandard["Containerbarcode"].toString();
-    const QString standardBaseWell = selectedStandard["Containerposition"].toString();
+    const QString stdBarcode   = standardObj["Containerbarcode"].toString();
+    const QString stdBaseWell  = standardObj["Containerposition"].toString();
 
-    const QMap<QString, QJsonObject> compoundLookup = prepareCompoundLookup(compounds);
-    const QMap<QString, QString> testMap = prepareTestLookup(testRequests);
-    const QJsonArray volumeMap = loadVolumeMapJson();
+    const auto cmpLookup  = prepareCompoundLookup(compounds);
+    const auto testLookup = prepareTestLookup(testReqs);
+    const QJsonObject volMap = loadVolumeMapJson();
 
-    const bool isInv031 = isInvT031Test(testRequests);
+    const bool isInv031 = isInvT031Test(testReqs);
 
-    for (const QJsonValue& plateVal : daughterPlates) {
-        QJsonObject plate = plateVal.toObject();
-        int plateNum = plate["plate_number"].toInt();
-        int dilutionSteps = plate.value("dilution_steps").toInt(6);
-        QJsonObject wells = plate["wells"].toObject();
+    for (const QJsonValue &plateVal : plates) {
+        const QJsonObject plateObj   = plateVal.toObject();
+        const int         plateNum   = plateObj["plate_number"].toInt();
+        const int         dilutions  = plateObj.value("dilution_steps").toInt(6);
+        const QJsonObject wellsObj   = plateObj["wells"].toObject();
 
-        if (isInv031) {
-            commands += generateStandardCommandsINV031(standardBarcode, standardBaseWell, plateNum);
-        }
+        if (isInv031)
+            cmds += generateStandardCommandsINV031(stdBarcode, stdBaseWell, plateNum);
 
-        for (const QString& well : wells.keys()) {
-            QString compound = wells[well].toString();
+        for (const QString &wellKey : wellsObj.keys())
+        {
+            const QString compound = wellsObj[wellKey].toString();
             if (compound == "DMSO" || compound == "Standard") continue;
 
-            const QJsonObject& cmpData = compoundLookup.value(compound);
-            QString testId = testMap.value(compound);
+            const QJsonObject cmpData = cmpLookup.value(compound);
+            const QString     testId  = testLookup.value(compound);
+            const double      stock   = cmpData["concentration"].toString().toDouble();
 
-            double stockConc = cmpData["concentration"].toString().toDouble();
-            QJsonObject volumeEntry = getVolumeEntry(testId, stockConc, volumeMap, &errors);
+            const QJsonObject volEntry = getVolumeEntry(testId, stock, volMap, &errors);
+            if (volEntry.isEmpty()) continue;               // already logged in errors
 
-            if (volumeEntry.isEmpty()) continue;
-
-            commands += generateCompoundTransfer(compound, well, plateNum, cmpData, volumeEntry);
+            cmds += generateCompoundTransfer(compound, wellKey, plateNum,
+                                             cmpData, volEntry);
         }
     }
 
-    // Prepend warnings as comments
+    /* prepend any warnings */
     if (!errors.isEmpty()) {
-        commands.prepend("; Warnings:");
-        for (const QString& msg : errors)
-            commands << QString("; %1").arg(msg);
-        commands << "";
+        cmds.prepend("; Warnings:");
+        for (const QString &e : std::as_const(errors)) cmds << "; " + e;
+        cmds << "";      // blank line
     }
-
-    return commands;
+    return cmds;
 }
 
-QMap<QString, QJsonObject> GWLGenerator::prepareCompoundLookup(const QJsonArray& compounds)
+/* ===================================================================== */
+/*                      1) JSON mapping helpers                          */
+/* ===================================================================== */
+QJsonObject GWLGenerator::loadVolumeMapJson()
 {
-    QMap<QString, QJsonObject> map;
-    for (const QJsonValue& cmp : compounds) {
-        QJsonObject obj = cmp.toObject();
-        map[obj["product_name"].toString()] = obj;
+    QFile f(":/standardjson/jsonfile/volumeMap.json");
+    if (!f.open(QIODevice::ReadOnly)) {
+        qWarning() << "❌ Cannot open volumeMap.json";
+        return {};
     }
-    return map;
+    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+    if (!doc.isObject()) {
+        qWarning() << "⚠️ volumeMap.json root is not an object";
+        return {};
+    }
+    return doc.object();
 }
 
-QMap<QString, QString> GWLGenerator::prepareTestLookup(const QJsonArray& testRequests)
+QJsonObject GWLGenerator::getVolumeEntry(const QString      &testId,
+                                         double              stockConc,
+                                         const QJsonObject   &volMap,
+                                         QStringList        *errors) const
 {
-    QMap<QString, QString> map;
-    for (const QJsonValue& val : testRequests) {
-        QJsonObject obj = val.toObject();
-        map[obj["compound_name"].toString()] = obj["requested_tests"].toString();
-    }
-    return map;
-}
-
-QJsonArray GWLGenerator::loadVolumeMapJson()
-{
-    QFile file(":/standardjson/jsonfile/volumeMap.json");
-    if (!file.open(QIODevice::ReadOnly)) {
-        qWarning() << "❌ Failed to open volumeMap.json";
+    if (!volMap.contains(testId) || !volMap[testId].isObject()) {
+        if (errors) errors->append(QString("No volume map for test '%1'").arg(testId));
         return {};
     }
 
-    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
-    file.close();
-
-    if (!doc.isArray()) {
-        qWarning() << "⚠️ volumeMap.json is not a JSON array";
-        return {};
-    }
-
-    return doc.array();
-}
-
-QJsonObject GWLGenerator::getVolumeEntry(const QString& testId, double stockConc, const QJsonArray& volumeMap, QStringList* errors)
-{
-    QJsonObject bestMatch;
+    /* choose the concentration‑bucket closest to stockConc */
+    const QJsonObject testObj = volMap[testId].toObject();
+    QJsonObject bestArrayObj;
     double bestDiff = std::numeric_limits<double>::max();
 
-    for (const QJsonValue& val : volumeMap) {
-        QJsonObject obj = val.toObject();
-        if (obj["INVENesisTestID"].toString() != testId)
-            continue;
+    for (const QString &concKey : testObj.keys()) {
+        bool ok = false;
+        const double concVal = concKey.toDouble(&ok);
+        if (!ok) continue;
 
-        double mapConc = obj["ConcMother"].toString().toDouble();
-        double diff = std::abs(mapConc - stockConc);
+        const double diff = std::abs(concVal - stockConc);
         if (diff < bestDiff) {
             bestDiff = diff;
-            bestMatch = obj;
+            bestArrayObj = testObj[concKey].toArray().first().toObject(); // first recipe
         }
     }
 
-    if (bestMatch.isEmpty() && errors) {
-        errors->append(QString("No match in volumeMap for test '%1' and stock concentration '%2'")
-                           .arg(testId)
-                           .arg(stockConc));
+    if (bestArrayObj.isEmpty() && errors) {
+        errors->append(QString("No match in volumeMap for test '%1' "
+                               "and stock concentration '%2'")
+                           .arg(testId).arg(stockConc));
     }
-
-    return bestMatch;
+    return bestArrayObj;
 }
 
-QStringList GWLGenerator::generateCompoundTransfer(const QString& compound, const QString& targetWell, int plateNumber,
-                                                   const QJsonObject& cmpData, const QJsonObject& volumeEntry)
+/* ===================================================================== */
+/*                       2) small look‑up helpers                        */
+/* ===================================================================== */
+QMap<QString,QJsonObject>
+GWLGenerator::prepareCompoundLookup(const QJsonArray &arr) const
 {
-    QStringList commands;
-    QString plateBarcode = QString("DP%1").arg(plateNumber);
-
-    QString matrixLabel = cmpData["container_id"].toString();
-    QString sourceWell = cmpData["well_id"].toString();
-    QString tecanSource = QString("SRC_%1_%2").arg(matrixLabel, sourceWell);
-    QString tecanTarget = QString("DST_%1_%2").arg(plateBarcode, targetWell);
-
-    double compoundVol = volumeEntry["compound_uL"].toDouble();
-    double dmsoVol = volumeEntry["dmso_uL"].toDouble();
-
-    commands << "A;TouchTip;;;DMSO_DIP_TANK;";
-    commands << "WASH;Wash;;;WASH;";
-    commands << "Aspirate;1;uL;DMSO_CUSHION_TANK;";
-    commands << QString("Aspirate;%.2f;uL;DMSO_TANK;").arg(dmsoVol);
-    commands << QString("Aspirate;%.2f;uL;%1;").arg(compoundVol).arg(tecanSource);
-    commands << QString("Dispense;%.2f;uL;%1;").arg(compoundVol + dmsoVol).arg(tecanTarget);
-    commands << "WASH;Final;;;WASH;";
-
-    return commands;
+    QMap<QString,QJsonObject> map;
+    for (const QJsonValue &v : arr) {
+        const QJsonObject o = v.toObject();
+        map[o["product_name"].toString()] = o;
+    }
+    return map;
 }
 
-QStringList GWLGenerator::generateStandardCommandsINV031(const QString& barcode, const QString& baseWell, int plateNumber)
+QMap<QString,QString>
+GWLGenerator::prepareTestLookup(const QJsonArray &arr) const
 {
-    QStringList commands;
-
-    QStringList stdWells = {"A11", "B11", "C11", "D11", "E11", "F11", "G11", "H11"};
-    QStringList matrixWells;
-
-    int col = baseWell.mid(1).toInt();
-    for (int i = 0; i < 8; ++i) {
-        QChar row = QChar('A' + i);
-        matrixWells << QString("%1%2").arg(row).arg(col);
+    QMap<QString,QString> map;
+    for (const QJsonValue &v : arr) {
+        const QJsonObject o = v.toObject();
+        map[o["compound_name"].toString()] = o["requested_tests"].toString();
     }
-
-    QString plateBarcode = QString("DP%1").arg(plateNumber);
-
-    commands << "A;TouchTip;;;DMSO_DIP_TANK;";
-    commands << "WASH;Wash;;;WASH;";
-    commands << "Aspirate;1;uL;DMSO_CUSHION_TANK;";
-
-    for (int i = 0; i < 8; ++i) {
-        commands << QString("Aspirate;10.0;uL;SRC_%1_%2;").arg(barcode, matrixWells[i]);
-    }
-    for (int i = 0; i < 8; ++i) {
-        commands << QString("Dispense;10.0;uL;DST_%1_%2;").arg(plateBarcode, stdWells[i]);
-    }
-
-    commands << "WASH;Final;;;WASH;";
-    return commands;
+    return map;
 }
 
-bool GWLGenerator::isInvT031Test(const QJsonArray& testRequests)
+bool GWLGenerator::isInvT031Test(const QJsonArray &reqs) const
 {
-    for (const QJsonValue& val : testRequests) {
-        QString testType = val.toObject().value("requested_tests").toString();
-        if (testType.contains("INV-T-031", Qt::CaseInsensitive)) {
+    for (const QJsonValue &v : reqs)
+        if (v.toObject().value("requested_tests").toString()
+                .contains("INV-T-031", Qt::CaseInsensitive))
             return true;
-        }
-    }
     return false;
 }
 
-bool GWLGenerator::saveToFile(const QStringList& lines, const QString& defaultName, QWidget* parent)
+/* ===================================================================== */
+/*                  3) command‑string generators                         */
+/* ===================================================================== */
+QStringList GWLGenerator::generateCompoundTransfer(const QString     &compound,
+                                                   const QString     &dstWell,
+                                                   int                plateNum,
+                                                   const QJsonObject &cmpData,
+                                                   const QJsonObject &vol)
 {
-    QString content = lines.join('\n');
-    QString filePath = QFileDialog::getSaveFileName(parent, "Save GWL File", defaultName + ".gwl", "GWL Files (*.gwl)");
-    if (filePath.isEmpty()) return false;
+    QStringList out;
+    const QString plateBarcode = QString("DP%1").arg(plateNum);
 
-    QFile file(filePath);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QMessageBox::critical(parent, "File Error", file.errorString());
+    const QString srcMatrix = cmpData["container_id"].toString();
+    const QString srcWell   = cmpData["well_id"].toString();
+    const QString tecSrc    = QString("SRC_%1_%2").arg(srcMatrix, srcWell);
+    const QString tecDst    = QString("DST_%1_%2").arg(plateBarcode, dstWell);
+
+    const double  cmpVol = vol["VolMother"].toDouble();
+    const double  dmsoVol= vol["DMSO"].toDouble();
+
+    out << "A;TouchTip;;;DMSO_DIP_TANK;";
+    out << "WASH;Wash;;;WASH;";
+    out << "Aspirate;1;uL;DMSO_CUSHION_TANK;";
+    out << QString("Aspirate;%.2f;uL;DMSO_TANK;").arg(dmsoVol);
+    out << QString("Aspirate;%.2f;uL;%1;").arg(cmpVol).arg(tecSrc);
+    out << QString("Dispense;%.2f;uL;%1;").arg(cmpVol + dmsoVol).arg(tecDst);
+    out << "WASH;Final;;;WASH;";
+    return out;
+}
+
+QStringList GWLGenerator::generateStandardCommandsINV031(const QString &barcode,
+                                                         const QString &baseWell,
+                                                         int            plateNum) const
+{
+    QStringList cmds;
+    const QString plateBarcode = QString("DP%1").arg(plateNum);
+
+    /* wells A11..H11 on daughter, same column from mother plate */
+    const QStringList dstWells = {"A11","B11","C11","D11","E11","F11","G11","H11"};
+    QStringList srcWells;
+
+    const int col = baseWell.mid(1).toInt();
+    for (int i = 0; i < 8; ++i)
+        srcWells << QString("%1%2").arg(QChar('A'+i)).arg(col);
+
+    cmds << "A;TouchTip;;;DMSO_DIP_TANK;";
+    cmds << "WASH;Wash;;;WASH;";
+    cmds << "Aspirate;1;uL;DMSO_CUSHION_TANK;";
+
+    for (const QString &w : srcWells)
+        cmds << QString("Aspirate;10.0;uL;SRC_%1_%2;").arg(barcode, w);
+    for (const QString &w : dstWells)
+        cmds << QString("Dispense;10.0;uL;DST_%1_%2;").arg(plateBarcode, w);
+
+    cmds << "WASH;Final;;;WASH;";
+    return cmds;
+}
+
+/* ===================================================================== */
+/*                        4) optional file‑save                          */
+/* ===================================================================== */
+bool GWLGenerator::saveToFile(const QStringList &lines,
+                              const QString     &defaultName,
+                              QWidget           *parent)
+{
+    const QString path = QFileDialog::getSaveFileName(parent, "Save GWL File",
+                                                      defaultName + ".gwl",
+                                                      "GWL files (*.gwl)");
+    if (path.isEmpty()) return false;
+
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QMessageBox::critical(parent, "File Error", f.errorString());
         return false;
     }
+    QTextStream(&f) << lines.join('\n');
+    f.close();
 
-    QTextStream out(&file);
-    out << content;
-    file.close();
-
-    QMessageBox::information(parent, "Saved", QString("GWL saved to:\n%1").arg(filePath));
+    QMessageBox::information(parent, "Saved",  QObject::tr("GWL saved to:\n%1").arg(path));
     return true;
 }

@@ -1,72 +1,87 @@
 #include "matrixplatewidget.h"
+
+// Qt
 #include <QGridLayout>
 #include <QLabel>
 #include <QFrame>
 
-MatrixPlateWidget::MatrixPlateWidget(const QString& containerId, QWidget *parent)
-    : QWidget(parent), containerId(containerId)
+/* ======================================================================= */
+/*                                ctor                                     */
+/* ======================================================================= */
+MatrixPlateWidget::MatrixPlateWidget(const QString &containerId, QWidget *parent)
+    : QWidget(parent),
+    containerId_{containerId}
 {
     setupPlateGrid();
+
+    /* make the widget exactly as wide as the grid so the title centres
+       above the wells *and* the whole plate can be centred in the scroll‑area */
+    setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    adjustSize();
 }
 
+/* ======================================================================= */
+/*                          grid construction                              */
+/* ======================================================================= */
 void MatrixPlateWidget::setupPlateGrid()
 {
-    auto layout = new QGridLayout(this);
-    layout->setSpacing(1);
-    layout->setContentsMargins(1, 20, 1, 1); // Increased top margin for better visibility of containerId label
+    grid_ = new QGridLayout(this);
+    grid_->setSpacing(kGapPx);
+    grid_->setContentsMargins(1, 4, 1, 1);
+    grid_->setSizeConstraint(QLayout::SetFixedSize);    // **key line**
 
-    // Container ID at the top
-    auto title = new QLabel(QString("Container: %1").arg(containerId), this);
+    /* --- plate title / barcode ------------------------------------------ */
+    auto *title = new QLabel(tr("Container: %1").arg(containerId_), this);
     title->setAlignment(Qt::AlignCenter);
-    title->setStyleSheet("font-weight:bold; padding-bottom:5px;");
-    layout->addWidget(title, 0, 0, 1, 13);
+    title->setStyleSheet(QStringLiteral("font-weight:bold;"));
+    grid_->addWidget(title, 0, 0, 1, kCols + 1);        // span all columns
 
-    // Row labels (A-H)
-    QStringList rows = {"A","B","C","D","E","F","G","H"};
-    for (int i = 0; i < 8; ++i) {
-        auto rowLabel = new QLabel(rows[i], this);
-        rowLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        rowLabel->setStyleSheet("padding-right:5px;");
-        layout->addWidget(rowLabel, i + 2, 0);
+    /* --- row / column headers ------------------------------------------- */
+    const QStringList rowLetters = {"A","B","C","D","E","F","G","H"};
+    for (int r = 0; r < kRows; ++r) {
+        auto *rowLbl = new QLabel(rowLetters[r], this);
+        rowLbl->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        rowLbl->setStyleSheet(QStringLiteral("padding-right:3px;"));
+        grid_->addWidget(rowLbl, r + 2, 0);             // +2 → leave row 1 free
+    }
+    for (int c = 1; c <= kCols; ++c) {
+        auto *colLbl = new QLabel(QString::number(c), this);
+        colLbl->setAlignment(Qt::AlignCenter);
+        grid_->addWidget(colLbl, 1, c);                 // column header row
     }
 
-    // Column labels (1-12)
-    for (int j = 1; j <= 12; ++j) {
-        auto colLabel = new QLabel(QString::number(j), this);
-        colLabel->setAlignment(Qt::AlignCenter);
-        layout->addWidget(colLabel, 1, j);
-    }
-
-    // Initialize wells explicitly into a map
-    for (int i = 0; i < 8; ++i) {
-        for (int j = 1; j <= 12; ++j) {
-            QString wellName = rows[i] + QString("%1").arg(j, 2, 10, QLatin1Char('0')); // A01 format
-            auto well = new QLabel(wellName, this);
-            well->setFixedSize(40, 40);
-            well->setFrameStyle(QFrame::Panel | QFrame::Sunken);
-            well->setAlignment(Qt::AlignCenter);
-            well->setStyleSheet("background-color: white;");
-            layout->addWidget(well, i + 2, j);
-            wellsMap[wellName] = well; // Store in map explicitly
+    /* --- wells ----------------------------------------------------------- */
+    for (int r = 0; r < kRows; ++r)
+        for (int c = 1; c <= kCols; ++c)
+        {
+            const QString wellId =
+                rowLetters[r] + QString("%1").arg(c,2,10,QLatin1Char('0')); // A01
+            auto *lbl = new QLabel(wellId, this);
+            lbl->setFixedSize(kWellPx, kWellPx);
+            lbl->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+            lbl->setAlignment(Qt::AlignCenter);
+            lbl->setStyleSheet(QStringLiteral("background-color:white;"));
+            grid_->addWidget(lbl, r + 2, c);
+            wells_.insert(wellId, lbl);
         }
-    }
 }
 
-void MatrixPlateWidget::setOccupiedWells(const QSet<QString>& wells)
+/* ======================================================================= */
+/*                          public setters                                 */
+/* ======================================================================= */
+void MatrixPlateWidget::setOccupiedWells(const QSet<QString> &wells)
 {
-    occupiedWells = wells;  // ✅ Store for retrieval
+    occupied_ = wells;
 
-    // Reset all wells first to avoid residual highlights
-    for (auto label : std::as_const(wellsMap)) {
-        label->setStyleSheet("background-color: white;");
-    }
+    /* reset all wells */
+    for (auto *lbl : std::as_const(wells_))
+        lbl->setStyleSheet(QStringLiteral("background-color:white;"));
 
-    // Highlight only specified occupied wells
-    for(const QString &well : wells) {
-        QString formattedWell = well.trimmed().toUpper();
-        if(wellsMap.contains(formattedWell)) {
-            wellsMap[formattedWell]->setStyleSheet("background-color: lightgreen; font-weight:bold;");
-        }
+    const QString css = QStringLiteral("background-color:lightgreen; font-weight:bold;");
+    for (const QString &idRaw : std::as_const(occupied_)) {
+        const QString id = idRaw.trimmed().toUpper();
+        if (wells_.contains(id))
+            wells_[id]->setStyleSheet(css);
     }
 }
 

@@ -1,30 +1,35 @@
-#ifndef MATRIXPLATECONTAINER_H
-#define MATRIXPLATECONTAINER_H
+#ifndef INVENESIS_MATRIXPLATECONTAINER_H
+#define INVENESIS_MATRIXPLATECONTAINER_H
 
 #include <QWidget>
-#include <QVBoxLayout>
-#include <QScrollArea>
 #include <QMap>
 #include <QSet>
 #include "matrixplatewidget.h"
 
+QT_BEGIN_NAMESPACE
+class QVBoxLayout;
+class QScrollArea;
+QT_END_NAMESPACE
+
 class MatrixPlateContainer : public QWidget
 {
     Q_OBJECT
+    Q_DISABLE_COPY_MOVE(MatrixPlateContainer)
 
 public:
     explicit MatrixPlateContainer(QWidget *parent = nullptr);
-    void populatePlates(const QMap<QString, QSet<QString>>& plateData);
+
+    void populatePlates(const QMap<QString,QSet<QString>> &plateData);
     void clearPlates();
-    QMap<QString, QSet<QString>> getPlateMap() const;
+
+    [[nodiscard]] QMap<QString,QSet<QString>> getPlateMap() const;
 
 private:
-    QVBoxLayout* mainLayout;
-    QScrollArea* scrollArea;
-    QWidget* containerWidget;
-    QVBoxLayout* platesLayout;
-
-    QMap<QString, MatrixPlateWidget*> platesMap;  // Keep track explicitly
+    QVBoxLayout           *mainLayout_     = nullptr;
+    QScrollArea           *scrollArea_     = nullptr;
+    QWidget               *platesHost_     = nullptr;
+    QVBoxLayout           *platesLayout_   = nullptr;
+    QMap<QString,MatrixPlateWidget*> plates_;
 };
 
-#endif // MATRIXPLATECONTAINER_H
+#endif // INVENESIS_MATRIXPLATECONTAINER_H

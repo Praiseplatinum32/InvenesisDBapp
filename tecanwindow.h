@@ -1,99 +1,94 @@
-#ifndef TECANWINDOW_H
-#define TECANWINDOW_H
+#ifndef INVENESIS_TECANWINDOW_H
+#define INVENESIS_TECANWINDOW_H
+/**
+ *  @file tecanwindow.h
+ *  @brief Main UI class driving the Tecan automation interface.
+ *
+ *  Refactored April 2025 – functionality preserved, structure & comments improved.
+ */
 
 #include <QMainWindow>
-#include <QSqlQueryModel>
-#include <QSet>
 #include <QJsonObject>
-
+#include <QSet>
+#include <memory>          // std::unique_ptr
 #include "matrixplatecontainer.h"
 
+QT_BEGIN_NAMESPACE
+class QSqlQueryModel;
+class QVBoxLayout;
+QT_END_NAMESPACE
 
-namespace Ui {
-class TecanWindow;
-}
+namespace Ui { class TecanWindow; }
 
-class TecanWindow : public QMainWindow
+/**
+ * @class TecanWindow
+ * @brief Main window controlling test‑request handling, plate layouts and GWL generation.
+ */
+class TecanWindow final : public QMainWindow
 {
     Q_OBJECT
+    Q_DISABLE_COPY_MOVE(TecanWindow)
 
 public:
     explicit TecanWindow(QWidget *parent = nullptr);
-    ~TecanWindow();
+    ~TecanWindow() override;
 
-    /**
-     * @brief Load test requests into the table view based on selected request IDs.
-     * @param requestIDs List of selected test request IDs.
-     */
+    /** Load selected test requests into the UI. */
     void loadTestRequests(const QStringList &requestIDs);
 
 private slots:
     void on_clearPlatesButton_clicked();
-
     void on_actionSave_triggered();
-
     void on_actionLoad_triggered();
-
     void on_actionGenerate_GWL_triggered();
 
-private:
-    Ui::TecanWindow *ui;
+private:            /* ---------- helper types ---------- */
+    using SqlModelPtr = std::unique_ptr<QSqlQueryModel>;
 
-    // SQL models to manage data views
-    QSqlQueryModel *testRequestModel;
-    QSqlQueryModel *compoundQueryModel;
+private:            /* ---------- helper GUI ----------
+                       (all raw‑pointers are Qt‑owned)   */
+    Ui::TecanWindow       *ui = nullptr;
+    SqlModelPtr            testRequestModel;
+    SqlModelPtr            compoundQueryModel;
 
-    // Custom Widgets for microplate display
-    MatrixPlateContainer* matrixPlateContainer;
-    QWidget* daughterPlatesContainerWidget;
-    QVBoxLayout* daughterPlatesLayout;
+    MatrixPlateContainer  *matrixPlateContainer = nullptr;
+    QWidget               *daughterPlatesContainerWidget = nullptr;
+    QVBoxLayout           *daughterPlatesLayout = nullptr;
 
-    // check if experiment is saved
-    QJsonObject lastSavedExperimentJson;
+    /* ---------- cached state ---------- */
+    QJsonObject            lastSavedExperimentJson;
 
-    /**
-     * @brief Extracts unique compound names from loaded test requests and initiates querying of solutions.
-     */
+private:            /* ---------- query helpers ---------- */
     void querySolutionsFromTestRequests();
-
-    /**
-     * @brief Queries the solutions table for each compound, handling duplicate solutions if necessary.
-     * @param compoundNames Set of unique compound names to query.
-     */
     void querySolutions(const QSet<QString> &compoundNames);
-
-    /**
-     * @brief Resolves cases where multiple solutions exist for a single compound name by prompting user selection.
-     * @param compoundName Compound with multiple entries.
-     * @param duplicateSolutions List of found solutions for the compound.
-     * @return Selected solution_id, or -1 if canceled.
-     */
-    int resolveCompoundDuplicates(const QString &compoundName, const QList<QVariantMap> &duplicateSolutions);
-
-    /**
-     * @brief Populates the compound query table with selected solutions.
-     * @param solutionIds List of selected solution IDs.
-     */
+    int  resolveCompoundDuplicates(const QString &compoundName,
+                                  const QList<QVariantMap> &duplicateSolutions);
     void populateCompoundTable(const QList<int> &solutionIds);
 
-    void populateDaughterPlates(int dilutionSteps, const QStringList& compoundList, const QString& testType);
+private:            /* ---------- plate helpers ---------- */
+    void populateDaughterPlates(int dilutionSteps,
+                                const QStringList& compoundList,
+                                const QString& testType);
 
-    //helper functions to load JSON file
-    void loadTestRequestsFromJson(const QJsonArray& array);
-    void loadCompoundsFromJson(const QJsonArray& array);
-    void loadMatrixPlatesFromJson(const QJsonObject& obj);
-    void loadDaughterPlatesFromJson(const QJsonArray& array, bool readOnly);
+    /* ------ JSON (de)serialisation helpers ------ */
+    void loadTestRequestsFromJson(const QJsonArray &array);
+    void loadCompoundsFromJson(const QJsonArray &array);
+    void loadMatrixPlatesFromJson(const QJsonObject &obj);
+    void loadDaughterPlatesFromJson(const QJsonArray &array, bool readOnly);
 
-    // Helper function to track saved experiment
-    QJsonObject buildCurrentExperimentJson(const QString& experimentCode, const QString& username);
+    QJsonObject buildCurrentExperimentJson(const QString &experimentCode,
+                                           const QString &username);
+    void generateGWLFromJson(const QJsonObject &experimentJson);
+    void generateExperimentAuxiliaryFiles(const QJsonObject &experimentJson,
+                                          const QString &outputFolder);
 
-    // create the GWL file
-    void generateGWLFromJson(const QJsonObject& experimentJson);
-
-
-    void generateExperimentAuxiliaryFiles(const QJsonObject& experimentJson, const QString& outputFolder);
-
-
+    /* ---------- convenience QMessageBox wrappers ---------- */
+    static void showInfo   (QWidget *parent, const QString &title,
+                         const QString &msg);
+    static void showWarning(QWidget *parent, const QString &title,
+                            const QString &msg);
+    static void showError  (QWidget *parent, const QString &title,
+                          const QString &msg);
 };
 
-#endif // TECANWINDOW_H
+#endif // INVENESIS_TECANWINDOW_H
