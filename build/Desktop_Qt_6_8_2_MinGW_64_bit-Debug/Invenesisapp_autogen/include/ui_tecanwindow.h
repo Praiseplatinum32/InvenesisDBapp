@@ -77,7 +77,7 @@ public:
         centralwidget->setObjectName("centralwidget");
         splitter_3 = new QSplitter(centralwidget);
         splitter_3->setObjectName("splitter_3");
-        splitter_3->setGeometry(QRect(4, 2, 851, 401));
+        splitter_3->setGeometry(QRect(10, 10, 851, 401));
         splitter_3->setOrientation(Qt::Orientation::Vertical);
         splitter = new QSplitter(splitter_3);
         splitter->setObjectName("splitter");
@@ -97,7 +97,7 @@ public:
         plateDisplayScrollArea->setWidgetResizable(true);
         scrollAreaWidgetContents = new QWidget();
         scrollAreaWidgetContents->setObjectName("scrollAreaWidgetContents");
-        scrollAreaWidgetContents->setGeometry(QRect(0, 0, 249, 136));
+        scrollAreaWidgetContents->setGeometry(QRect(0, 0, 68, 136));
         plateDisplayScrollArea->setWidget(scrollAreaWidgetContents);
         splitter_2->addWidget(plateDisplayScrollArea);
         layoutWidget = new QWidget(splitter_2);
@@ -118,7 +118,7 @@ public:
         daughterPlateScrollArea->setWidgetResizable(true);
         scrollAreaWidgetContents_2 = new QWidget();
         scrollAreaWidgetContents_2->setObjectName("scrollAreaWidgetContents_2");
-        scrollAreaWidgetContents_2->setGeometry(QRect(0, 0, 592, 104));
+        scrollAreaWidgetContents_2->setGeometry(QRect(0, 0, 773, 104));
         daughterPlateScrollArea->setWidget(scrollAreaWidgetContents_2);
 
         verticalLayout->addWidget(daughterPlateScrollArea);

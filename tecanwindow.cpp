@@ -797,65 +797,69 @@ QJsonObject TecanWindow::buildCurrentExperimentJson(const QString &experimentCod
 
 
 /* =======================================================================
- * 1)  on_actionGenerate_GWL_triggered()
+ * 1) on_actionGenerate_GWL_triggered()
  * ======================================================================= */
 void TecanWindow::on_actionGenerate_GWL_triggered()
 {
     qDebug() << "[TRACE] GWL button pressed";
 
-    /* ---------------------------------------------------------- */
-    /* 0) Make sure we have at least one saved snapshot           */
-    /* ---------------------------------------------------------- */
-    if (lastSavedExperimentJson.isEmpty()) {
-        showWarning(this, tr("Not Saved"),
-                    tr("You must save the experiment before generating a GWL file."));
-        on_actionSave_triggered();            // user does an explicit save
-        return;
-    }
+    /* 0 – must have at least one saved snapshot ------------------------ */
+       if (lastSavedExperimentJson.isEmpty()) {
+    showWarning(this, tr("Not Saved"),
+                tr("You must save the experiment before generating a GWL file."));
+    on_actionSave_triggered();
+    return;
+}
 
-    /* ---------------------------------------------------------- */
-    /* 1) Build JSON from the *current* UI state                  */
-    /* ---------------------------------------------------------- */
-    const QString code = lastSavedExperimentJson["experiment_code"].toString();
-    const QString user = lastSavedExperimentJson["user"].toString();
-    const QJsonObject currentJson = buildCurrentExperimentJson(code, user);
+/* 1 – build JSON from CURRENT UI ---------------------------------- */
+   const QString code = lastSavedExperimentJson["experiment_code"].toString();
+const QString user = lastSavedExperimentJson["user"].toString();
+QJsonObject   currentJson = buildCurrentExperimentJson(code, user);
 
-    /* ---------------------------------------------------------- */
-    /* 2) Compare with last snapshot using order‑insensitive eq.  */
-    /* ---------------------------------------------------------- */
-    if (!jsonEqual(lastSavedExperimentJson, currentJson)) {
-        const QMessageBox::StandardButton choice = QMessageBox::question(
-            this, tr("Experiment Modified"),
-            tr("Changes have been made since last save.\n"
-               "Do you want to overwrite the saved experiment?"),
-            QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+/* always copy the STANDARD from the last saved version ------------- */
+currentJson["standard"] = lastSavedExperimentJson["standard"];
 
-        if (choice == QMessageBox::Cancel)
-            return;
+/* 2 – compare order‑insensitively ---------------------------------- */
+   if (!jsonEqual(lastSavedExperimentJson, currentJson)) {
+const auto choice = QMessageBox::question(
+    this, tr("Experiment Modified"),
+    tr("Changes have been made since last save.\n"
+       "Do you want to overwrite the saved experiment?"),
+    QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
 
-        if (choice == QMessageBox::Yes) {         // overwrite snapshot, then stop
-            on_actionSave_triggered();
-            return;                               // user will press Generate again
-        }
+if (choice == QMessageBox::Cancel) return;
 
-        /* choice == No → continue with unsaved edits that are on screen */
-        generateGWLFromJson(currentJson);
-        return;
-    }
+if (choice == QMessageBox::Yes) { on_actionSave_triggered(); return; }
 
-    generateGWLFromJson(lastSavedExperimentJson);
+/* choice == No: generate with *currentJson* (unsaved edits) */
+generateGWLFromJson(currentJson);
+return;
+}
+
+generateGWLFromJson(lastSavedExperimentJson);
 }
 
 /* =======================================================================
- * 2)  generateGWLFromJson()
+ * 2) generateGWLFromJson()
  * ======================================================================= */
 void TecanWindow::generateGWLFromJson(const QJsonObject &experimentJson)
 {
     qDebug() << "[TRACE] generateGWLFromJson()";
 
+    /* ---- determine dilution factor from first test‑request ---------- */
+    double dilutionFactor = 3.16;                               // default
+    const QJsonArray trArr = experimentJson["test_requests"].toArray();
+    if (!trArr.isEmpty()) {
+        bool ok = false;
+        double f = trArr.at(0).toObject()
+                       .value("dilution_steps_unit")     // or "dilution_factor"
+                       .toString().toDouble(&ok);
+        if (ok && f > 0.0) dilutionFactor = f;
+    }
+
     QStringList gwlLines;
     try {
-        GWLGenerator generator;
+        GWLGenerator generator(dilutionFactor);
         gwlLines = generator.generateTransferCommands(experimentJson);
         qDebug() << "[TRACE] generator produced" << gwlLines.size() << "lines";
     } catch (const std::exception &ex) {
@@ -868,116 +872,93 @@ void TecanWindow::generateGWLFromJson(const QJsonObject &experimentJson)
     if (gwlLines.isEmpty()) {
         showWarning(this, tr("GWL Generation"),
                     tr("No GWL lines generated. Check mapping or input data."));
-        qWarning() << "[WARN] generator returned empty list";
         return;
     }
 
-    QString filename = experimentJson.value("experiment_code").toString().trimmed();
-    if (filename.isEmpty()) filename = QStringLiteral("experiment");
+    QString fileStem = experimentJson["experiment_code"].toString().trimmed();
+    if (fileStem.isEmpty()) fileStem = "experiment";
 
     const QString gwlPath = QFileDialog::getSaveFileName(
-        this, tr("Save GWL File"), filename + ".gwl",
+        this, tr("Save GWL File"), fileStem + ".gwl",
         tr("GWL files (*.gwl)"));
-    if (gwlPath.isEmpty()) { qDebug() << "[TRACE] user canceled file dialog"; return; }
+    if (gwlPath.isEmpty()) return;          // user cancelled
 
-    QFile gwlFile(gwlPath);
-    if (!gwlFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    QFile f(gwlPath);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
         showError(this, tr("File Error"),
-                  tr("Failed to write GWL file:\n%1").arg(gwlFile.errorString()));
-        qCritical() << "[FATAL] cannot open" << gwlPath << ":" << gwlFile.errorString();
+                  tr("Failed to write GWL file:\n%1").arg(f.errorString()));
         return;
     }
-    QTextStream(&gwlFile) << gwlLines.join(QLatin1Char('\n'));
-    gwlFile.close();
+    QTextStream(&f) << gwlLines.join('\n');
+    f.close();
     qDebug() << "[TRACE] GWL written to" << gwlPath;
 
-    const QString outFolder = QFileInfo(gwlPath).absolutePath();
-    generateExperimentAuxiliaryFiles(experimentJson, outFolder);
+    generateExperimentAuxiliaryFiles(experimentJson, QFileInfo(gwlPath).absolutePath());
 
     showInfo(this, tr("Success"),
-             tr("GWL and metadata files saved in:\n%1").arg(outFolder));
+             tr("GWL and metadata files saved in:\n%1")
+                 .arg(QFileInfo(gwlPath).absolutePath()));
 }
 
 /* =======================================================================
- * 3)  generateExperimentAuxiliaryFiles()
+ * 3) generateExperimentAuxiliaryFiles()
+ *      (unchanged except stdDilution now = dilutionFactor)
  * ======================================================================= */
 void TecanWindow::generateExperimentAuxiliaryFiles(const QJsonObject &experimentJson,
                                                    const QString     &outputFolder)
 {
     qDebug() << "[TRACE] generateExperimentAuxiliaryFiles() to" << outputFolder;
 
-    const QJsonObject standard   = experimentJson.value("standard").toObject();
-    const QJsonArray  testReqArr = experimentJson.value("test_requests").toArray();
+    const QJsonObject standard   = experimentJson["standard"].toObject();
+    const QJsonArray  testReqArr = experimentJson["test_requests"].toArray();
 
-    if (standard.isEmpty()) {
+    if (standard.isEmpty() || testReqArr.isEmpty()) {
         showError(this, tr("GWL Generation"),
-                  tr("Missing standard information; cannot write metadata files."));
-        qCritical() << "[FATAL] standard object missing";
-        return;
-    }
-    if (testReqArr.isEmpty()) {
-        showError(this, tr("GWL Generation"),
-                  tr("No test‑request data present; cannot write metadata files."));
-        qCritical() << "[FATAL] test_requests array empty";
+                  tr("Missing standard or test‑request information; "
+                     "cannot write metadata files."));
         return;
     }
 
+    /* ---- pick same dilution factor written into stdDilutionStep.txt -- */
+    bool ok=false;
+    double dil = testReqArr.at(0).toObject()
+                     .value("dilution_steps_unit").toString().toDouble(&ok);
+    const QString stdDilution =
+        (ok && dil > 0.0) ? QString::number(dil,'f',2) : "3.16";
+
+    /* ---- (rest of function identical) ---- */
     QDir dir(outputFolder);
-    if (!dir.exists() && !dir.mkpath(QStringLiteral("."))) {
-        showError(this, tr("File Error"),
-                  tr("Unable to create output folder:\n%1").arg(dir.absolutePath()));
-        qCritical() << "[FATAL] cannot create directory" << dir.absolutePath();
-        return;
-    }
+    dir.mkpath(".");
 
-    auto writeFile = [&](const QString &name, const QString &content) {
+    auto writeFile = [&](const QString &name, const QString &content){
         QFile f(dir.filePath(name));
-        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text))
             QTextStream(&f) << content.trimmed();
-            qDebug() << "[TRACE] wrote" << name;
-        } else {
-            qWarning().noquote() << "Failed to write" << name << ':' << f.errorString();
-        }
     };
 
     const QString testProtocol =
-        testReqArr.at(0).toObject().value("requested_tests").toString();
-    const QString stdSolId     = standard.value("invenesis_solution_ID").toString();
-    const QString stdUsed      = standard.value("Samplealias").toString();
-    const QString stdDilution  = QStringLiteral("3.16");   // TODO configurable
+        testReqArr.at(0).toObject()["requested_tests"].toString();
 
-    /* text files */
     writeFile("volume.txt",               "50");
     writeFile("testProtocol.txt",         testProtocol);
     writeFile("stdDilutionStep.txt",      stdDilution);
-    writeFile("stdSolID.txt",             stdSolId);
-    writeFile("stdUsed.txt",              stdUsed);
+    writeFile("stdSolID.txt",             standard["invenesis_solution_ID"].toString());
+    writeFile("stdUsed.txt",              standard["Samplealias"].toString());
     writeFile("sourceQuadrant.txt",       "NA");
     writeFile("targetQuadrant.txt",       "NA");
     writeFile("layout.txt",               "LAY18");
     writeFile("replicate.txt",            "1");
-    writeFile("projets.txt",              experimentJson.value("project_code").toString());
+    writeFile("projets.txt",              experimentJson["project_code"].toString());
     writeFile("NombreMatrixAamener.txt",  "01");
     writeFile("NbMatrixParDght_0.txt",    "0");
     writeFile("NombreDghtAamener.txt",    "1");
     writeFile("MatrixBarcodeIDActuel.txt",
-              standard.value("Containerbarcode").toString());
+              standard["Containerbarcode"].toString());
 
     /* ExpEnCours.txt */
-    const QString expEnCoursPath =
-        R"(C:\ProgramData\Tecan\EVOware\database\scripts\INVUseByTecan\txtFiles\ExpEnCours.txt)";
-    QFileInfo expInfo(expEnCoursPath);
-    QDir expDir = expInfo.dir();
-    if (!expDir.exists() && !expDir.mkpath(QStringLiteral("."))) {
-        qWarning() << "Cannot create directory for ExpEnCours.txt:" << expDir.path();
-        return;
-    }
-    QFile expFile(expEnCoursPath);
-    if (expFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream(&expFile) << experimentJson.value("experiment_code").toString() << '\n';
-        qDebug() << "[TRACE] wrote ExpEnCours.txt";
-    } else {
-        qWarning() << "Failed to write ExpEnCours.txt:" << expFile.errorString();
-    }
+    QFile expFile(R"(C:\ProgramData\Tecan\EVOware\database\scripts\INVUseByTecan\txtFiles\ExpEnCours.txt)");
+    if (expFile.open(QIODevice::WriteOnly | QIODevice::Text))
+        QTextStream(&expFile) << experimentJson["experiment_code"].toString() << '\n';
 }
+
 
