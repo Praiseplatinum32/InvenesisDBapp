@@ -54,11 +54,11 @@ static QStringList makeStandardHitPick(const QString &matrixBarcode,
     const double  total  = kStdMotherVol + kStdDmsoVol;
 
     return {
-        "C;Commentaire**************  Hit-Pick STD  **************Commentaire",
-        "A;TroughDMSOPreAspi;;;1;;50;DMSO_pre_aspiration",
-        QString("A;;%1;Matrix05Tube;16;;30;P00DMSO_copy_Matrix").arg(matrixBarcode),
-        "D;MPDaughter;;96daughterInv;1;;30;DMSONOMixHitList",
-        "W;",
+        //"C;Commentaire**************  Hit-Pick STD  **************Commentaire",
+        //"A;TroughDMSOPreAspi;;;1;;50;DMSO_pre_aspiration",
+        // QString("A;;%1;Matrix05Tube;16;;30;P00DMSO_copy_Matrix").arg(matrixBarcode),
+        // "D;MPDaughter;;96daughterInv;1;;30;DMSONOMixHitList",
+        // "W;",
         "A;TouchTip;;;DMSO_DIP_TANK;",
         "WASH;Wash;;;WASH;",
         "Aspirate;1;uL;DMSO_CUSHION_TANK;",
@@ -137,17 +137,21 @@ QStringList GWLGenerator::generateTransferCommands(const QJsonObject &exp) const
                                             plateNum, steps-1,
                                             totalWellVol_);
 
-            /* pure DMSO row H same column */
-            const QString dmsoWell = "H" + QString::number(startCol);
-            const QString tecDst   = QString("DST_DP%1_%2").arg(plateNum, dmsoWell);
+            /* pure DMSO row H – same column */
+            const QString dmsoWell = QStringLiteral("H%1").arg(startCol);
+            const QString tecDst   = QStringLiteral("DST_DP%1_%2")
+                                       .arg(plateNum)          // %1  ← plate number
+                                       .arg(dmsoWell);         // %2  ← "H<n>"
+
             singleTip << "A;TouchTip;;;DMSO_DIP_TANK;"
                       << "WASH;Wash;;;WASH;"
                       << "Aspirate;1;uL;DMSO_CUSHION_TANK;"
-                      << QString("Aspirate;%1;uL;DMSO_TANK;")
-                           .arg(QString::number(totalWellVol_,'f',2))
-                      << QString("Dispense;%1;uL;%2;")
-                           .arg(QString::number(totalWellVol_,'f',2), tecDst)
+                      << QStringLiteral("Aspirate;%1;uL;DMSO_TANK;")
+                             .arg(QString::number(totalWellVol_,'f',2))
+                      << QStringLiteral("Dispense;%1;uL;%2;")
+                             .arg(QString::number(totalWellVol_,'f',2), tecDst)
                       << "WASH;Final;;;WASH;";
+
         }
 
         /* 2‑‑special INV‑T‑031 columns 11+12 -------------------------- */
