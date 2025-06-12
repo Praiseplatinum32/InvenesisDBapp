@@ -29,6 +29,7 @@ set(SOURCES
     openwall_crypt/crypt_blowfish.c
     openwall_crypt/crypt_gensalt.c
     openwall_crypt/wrapper.c
+    PlateMapDialog.cpp
 )
 
 set(HEADERS
@@ -49,6 +50,7 @@ set(HEADERS
     openwall_crypt/ow-crypt.h
     openwall_crypt/crypt_blowfish.h
     openwall_crypt/crypt_gensalt.h
+    PlateMapDialog.h
 
 )
 
@@ -58,6 +60,7 @@ set(FORMS
     databaseviewwindow.ui
     tecanwindow.ui
     additemdialog.ui
+    PlateMapDialog.ui
 )
 
 set(RESOURCES
@@ -78,6 +81,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         standardselectiondialog.h standardselectiondialog.cpp standardselectiondialog.ui
         standardlibrary.h standardlibrary.cpp
         .gitignore
+        PlateWidget.h PlateWidget.cpp
 )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET Invenesisapp APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR

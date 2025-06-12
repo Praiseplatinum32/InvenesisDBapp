@@ -42,6 +42,8 @@ private slots:
     void on_actionLoad_triggered();
     void on_actionGenerate_GWL_triggered();
 
+    void on_actionCreate_Plate_Map_triggered();
+
 private:            /* ---------- helper types ---------- */
     using SqlModelPtr = std::unique_ptr<QSqlQueryModel>;
 

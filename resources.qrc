@@ -13,6 +13,7 @@
         <file>icon/dossier.png</file>
         <file>icon/sauvegarder.png</file>
         <file>icon/telechargement-de-fichiers.png</file>
+        <file>icon/platemap.png</file>
     </qresource>
     <qresource prefix="/standardjson">
         <file>jsonfile/standards_matrix.json</file>

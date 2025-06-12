@@ -1,4 +1,5 @@
 #include "tecanwindow.h"
+#include "PlateMapDialog.h"
 #include "ui_tecanwindow.h"
 
 // Qt
@@ -18,6 +19,11 @@
 #include <algorithm>        // std::sort
 #include <QJsonDocument>
 #include <QVariant>
+#include <QDir>
+#include <QFileInfo>
+#include <QJsonObject>
+#include <QDebug>
+#include <QSet>
 
 // Project
 #include "daughterplatewidget.h"
@@ -598,24 +604,37 @@ void TecanWindow::loadTestRequestsFromJson(const QJsonArray &array)
 {
     if (array.isEmpty()) return;
 
+    // Build a model that preserves the JSON fields *including* number_of_dilutions
     auto *model = new QStandardItemModel(this);
     const QStringList headers = {
-        "request_id", "project_code", "requested_tests", "compound_name",
-        "starting_concentration", "starting_concentration_unit",
-        "dilution_steps", "dilution_steps_unit", "number_of_replicate",
-        "stock_concentration", "stock_concentration_unit",
-        "concentration_to_be_tested", "additional_notes"};
+        "request_id",
+        "project_code",
+        "requested_tests",
+        "compound_name",
+        "starting_concentration",
+        "starting_concentration_unit",
+        "dilution_steps",
+        "dilution_steps_unit",
+        "number_of_dilutions",      // <-- newly added
+        "number_of_replicate",
+        "stock_concentration",
+        "stock_concentration_unit",
+        "concentration_to_be_tested",
+        "additional_notes"
+    };
     model->setHorizontalHeaderLabels(headers);
 
+    // Populate rows
     for (const QJsonValue &val : array) {
         const QJsonObject obj = val.toObject();
         QList<QStandardItem*> row;
-        for (const QString &key : headers)
+        for (const QString &key : headers) {
             row << new QStandardItem(obj.value(key).toVariant().toString());
+        }
         model->appendRow(row);
     }
 
-    testRequestModel->setQuery(QSqlQuery());
+    // Swap into the view
     ui->testRequestTableView->setModel(model);
 }
 
@@ -846,119 +865,424 @@ void TecanWindow::generateGWLFromJson(const QJsonObject &experimentJson)
 {
     qDebug() << "[TRACE] generateGWLFromJson()";
 
-    /* ---- determine dilution factor from first test‑request ---------- */
-    double dilutionFactor = 3.16;                               // default
+    // 1) Determine dilution factor (dilution_steps_unit) from first test request
+    double dilutionFactor = 3.16;  // default
     const QJsonArray trArr = experimentJson["test_requests"].toArray();
     if (!trArr.isEmpty()) {
-        bool ok = false;
-        double f = trArr.at(0).toObject()
-                       .value("dilution_steps_unit")     // or "dilution_factor"
-                       .toString().toDouble(&ok);
-        if (ok && f > 0.0) dilutionFactor = f;
+        const auto tr0 = trArr.at(0).toObject();
+        bool ok       = false;
+        double df     = tr0.value("dilution_steps_unit")
+                        .toString().toDouble(&ok);
+        if (ok && df > 0.0) dilutionFactor = df;
     }
 
+    // 2) Extract test ID for volumeMap lookup
+    QString testId;
+    if (!trArr.isEmpty()) {
+        testId = trArr.at(0).toObject()
+        .value("requested_tests").toString();
+    }
+
+    // 3) Extract the stock concentration (µM) of the first compound
+    double stockConcMicroM = 0.0;
+    const QJsonArray cmpArr = experimentJson["compounds"].toArray();
+    if (!cmpArr.isEmpty()) {
+        const auto cmp0    = cmpArr.at(0).toObject();
+        const double sc    = cmp0.value("concentration").toDouble();
+        const QString cu   = cmp0.value("concentration_unit").toString();
+        // convert mM → µM
+        if (cu.compare("mM", Qt::CaseInsensitive) == 0)
+            stockConcMicroM = sc * 1000.0;
+        else
+            stockConcMicroM = sc;
+    }
+
+    // 4) Instantiate GWLGenerator with the new signature
     QStringList gwlLines;
     try {
-        GWLGenerator generator(dilutionFactor);
+        GWLGenerator generator(dilutionFactor, testId, stockConcMicroM);
         gwlLines = generator.generateTransferCommands(experimentJson);
         qDebug() << "[TRACE] generator produced" << gwlLines.size() << "lines";
     } catch (const std::exception &ex) {
         showError(this, tr("GWL Generation"),
-                  tr("Generator error: %1").arg(QString::fromLocal8Bit(ex.what())));
+                  tr("Generator error: %1")
+                      .arg(QString::fromLocal8Bit(ex.what())));
         qCritical() << "[FATAL] exception from GWLGenerator:" << ex.what();
         return;
     }
 
+    // 5) Bail out if nothing was produced
     if (gwlLines.isEmpty()) {
         showWarning(this, tr("GWL Generation"),
                     tr("No GWL lines generated. Check mapping or input data."));
         return;
     }
 
-    QString fileStem = experimentJson["experiment_code"].toString().trimmed();
+    // 6) Ask user where to save
+    QString fileStem = experimentJson.value("experiment_code")
+                           .toString().trimmed();
     if (fileStem.isEmpty()) fileStem = "experiment";
-
     const QString gwlPath = QFileDialog::getSaveFileName(
         this, tr("Save GWL File"), fileStem + ".gwl",
         tr("GWL files (*.gwl)"));
-    if (gwlPath.isEmpty()) return;          // user cancelled
+    if (gwlPath.isEmpty()) return;  // user cancelled
 
+    // 7) Write to disk
     QFile f(gwlPath);
     if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
         showError(this, tr("File Error"),
-                  tr("Failed to write GWL file:\n%1").arg(f.errorString()));
+                  tr("Failed to write GWL file:\n%1")
+                      .arg(f.errorString()));
         return;
     }
     QTextStream(&f) << gwlLines.join('\n');
     f.close();
     qDebug() << "[TRACE] GWL written to" << gwlPath;
 
-    generateExperimentAuxiliaryFiles(experimentJson, QFileInfo(gwlPath).absolutePath());
+    // 8) Generate the auxiliary files alongside
+    generateExperimentAuxiliaryFiles(experimentJson,
+                                     QFileInfo(gwlPath).absolutePath());
 
+    // 9) Final success message
     showInfo(this, tr("Success"),
              tr("GWL and metadata files saved in:\n%1")
                  .arg(QFileInfo(gwlPath).absolutePath()));
 }
 
+
 /* =======================================================================
  * 3) generateExperimentAuxiliaryFiles()
  *      (unchanged except stdDilution now = dilutionFactor)
  * ======================================================================= */
-void TecanWindow::generateExperimentAuxiliaryFiles(const QJsonObject &experimentJson,
+
+void TecanWindow::generateExperimentAuxiliaryFiles(const QJsonObject &exp,
                                                    const QString     &outputFolder)
 {
     qDebug() << "[TRACE] generateExperimentAuxiliaryFiles() to" << outputFolder;
 
-    const QJsonObject standard   = experimentJson["standard"].toObject();
-    const QJsonArray  testReqArr = experimentJson["test_requests"].toArray();
+    // --- 0) Extract and validate top‐level JSON data ---
+    const QString experimentCode = exp.value("experiment_code").toString().trimmed();
+    const QString projectCode    = exp.value("project_code").toString().trimmed();
+    const QJsonObject standard   = exp.value("standard").toObject();
+    const QJsonArray  plates     = exp.value("daughter_plates").toArray();
+    const QJsonArray  testReqArr = exp.value("test_requests").toArray();
+    const QJsonArray  compounds  = exp.value("compounds").toArray();
 
-    if (standard.isEmpty() || testReqArr.isEmpty()) {
+    if (experimentCode.isEmpty() || standard.isEmpty() || plates.isEmpty()) {
         showError(this, tr("GWL Generation"),
-                  tr("Missing standard or test‑request information; "
-                     "cannot write metadata files."));
+                  tr("Missing experiment code, standard, or daughter‐plate data."));
         return;
     }
 
-    /* ---- pick same dilution factor written into stdDilutionStep.txt -- */
-    bool ok=false;
-    double dil = testReqArr.at(0).toObject()
-                     .value("dilution_steps_unit").toString().toDouble(&ok);
-    const QString stdDilution =
-        (ok && dil > 0.0) ? QString::number(dil,'f',2) : "3.16";
+    // --- 1) Read dilution_steps_unit → dilutionFactor (for GWLGenerator) ---
+    double dilutionFactor = 3.16;
+    if (!testReqArr.isEmpty()) {
+        bool ok3 = false;
+        double df = testReqArr.at(0).toObject()
+                        .value("dilution_steps_unit").toString()
+                        .toDouble(&ok3);
+        if (ok3 && df > 0.0) dilutionFactor = df;
+    }
 
-    /* ---- (rest of function identical) ---- */
-    QDir dir(outputFolder);
-    dir.mkpath(".");
+    // --- 2) Extract testId (requested_tests) ---
+    QString testId;
+    if (!testReqArr.isEmpty()) {
+        testId = testReqArr.at(0).toObject()
+        .value("requested_tests").toString();
+    }
 
-    auto writeFile = [&](const QString &name, const QString &content){
-        QFile f(dir.filePath(name));
-        if (f.open(QIODevice::WriteOnly | QIODevice::Text))
-            QTextStream(&f) << content.trimmed();
+    // --- 3) Extract stock concentration (µM) from first compound ---
+    double stockConcMicroM = 0.0;
+    if (!compounds.isEmpty()) {
+        const auto cmp0 = compounds.at(0).toObject();
+        const double sc = cmp0.value("concentration").toDouble();
+        const QString cu = cmp0.value("concentration_unit").toString();
+        stockConcMicroM = cu.compare("mM", Qt::CaseInsensitive) == 0
+                              ? sc * 1000.0 : sc;
+    }
+
+    // --- 4) Gather all non‐standard matrix barcodes ---
+    const QString stdMatrix = standard.value("Containerbarcode").toString();
+    QSet<QString> allMatrices;
+    for (const auto &vv : compounds) {
+        const auto o = vv.toObject();
+        const QString bc = o.value("container_id").toString();
+        if (!bc.isEmpty() && bc != stdMatrix)
+            allMatrices.insert(bc);
+    }
+
+    // --- 5) Create root experiment folder ---
+    QDir rootDir(outputFolder);
+    if (!rootDir.mkpath(experimentCode)) {
+        showError(this, tr("File Error"),
+                  tr("Could not create folder:\n%1")
+                      .arg(rootDir.filePath(experimentCode)));
+        return;
+    }
+    rootDir.cd(experimentCode);
+
+    // --- 6) Build compound index (by product_name) ---
+    QMap<QString,QJsonObject> cmpIdx;
+    for (const auto &vv : compounds)
+        cmpIdx[vv.toObject().value("product_name").toString()] = vv.toObject();
+
+    QSet<QString> prevSet;
+
+    // --- 7) Per‐daughter‐plate folders (dght_0, dght_1, …) ---
+    for (int i = 0; i < plates.size(); ++i) {
+        const QJsonObject plate = plates.at(i).toObject();
+        const QJsonObject wells = plate.value("wells").toObject();
+
+        // 7.a) Determine which matrices this plate uses (exclude standard)
+        QSet<QString> thisSet;
+        for (const QString &key : wells.keys()) {
+            const QString cmpName = wells.value(key).toString();
+            if (cmpIdx.contains(cmpName)) {
+                const QString bc = cmpIdx[cmpName]
+                                       .value("container_id").toString();
+                if (bc != stdMatrix) thisSet.insert(bc);
+            }
+        }
+
+        // 7.b) Make the dght_i folder and cd into it
+        const QString dghtName = QString("dght_%1").arg(i);
+        rootDir.mkdir(dghtName);
+        rootDir.cd(dghtName);
+
+        // 7.c) Generate one GWL per matrix in this plate
+        for (const QString &matrixBC : thisSet) {
+            // Build sub‐experiment JSON for this single‐matrix
+            QJsonObject subExp = exp;
+            subExp["daughter_plates"] = QJsonArray{ plate };
+
+            // Filter compounds down to just this matrix
+            QJsonArray subCmps;
+            for (const auto &vv : compounds) {
+                const auto o = vv.toObject();
+                if (o.value("container_id").toString() == matrixBC)
+                    subCmps.append(o);
+            }
+            subExp["compounds"] = subCmps;
+
+            // Instantiate the 3-arg generator
+            GWLGenerator generator(dilutionFactor,
+                                   testId,
+                                   stockConcMicroM);
+
+            // Generate
+            QStringList lines;
+            try {
+                lines = generator.generateTransferCommands(subExp);
+            } catch (const std::exception &ex) {
+                showError(this, tr("GWL Generation"),
+                          tr("Matrix %1 error:\n%2")
+                              .arg(matrixBC,
+                                   QString::fromLocal8Bit(ex.what())));
+                continue;
+            }
+
+            // Write <matrixBC>.gwl
+            QFile gwlF(rootDir.filePath(matrixBC + ".gwl"));
+            if (gwlF.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                QTextStream(&gwlF) << lines.join('\n');
+                gwlF.close();
+            }
+        }
+
+        // 7.d) MemeMotherdghtPrecedente.txt
+        {
+            QFile flagF(rootDir.filePath("MemeMotherdghtPrecedente.txt"));
+            if (flagF.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                QTextStream out(&flagF);
+                const bool sameAsPrev = (i > 0 && thisSet == prevSet);
+                out << (i == 0 || !sameAsPrev
+                            ? "ChangeMatrix "
+                            : "MemeMatrix ");
+                flagF.close();
+            }
+        }
+        prevSet = thisSet;
+        rootDir.cdUp();
+    }
+
+    // --- 8) FichiersTXT folder ---
+    rootDir.mkdir("FichiersTXT");
+    rootDir.cd("FichiersTXT");
+    auto writeTxt = [&](const QString &name, const QString &txt){
+        QFile f(rootDir.filePath(name));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream(&f) << txt;
+            f.close();
+        }
     };
 
-    const QString testProtocol =
-        testReqArr.at(0).toObject()["requested_tests"].toString();
+    writeTxt("controlListeMatrixLueTecan.txt", "");
+    writeTxt("DaughterIDAamener.txt",    QString::number(plates.size()));
+    writeTxt("DilutionsStep.txt",       QString::number(
+                                      testReqArr.at(0)
+                                          .toObject()
+                                          .value("dilution_steps")
+                                          .toInt()));
+    writeTxt("NbDilutionsDemandee.txt", QString::number(
+                                            testReqArr.at(0)
+                                                .toObject()
+                                                .value("number_of_dilutions")
+                                                .toInt()));
+    writeTxt("ExpSTD.txt",              "\"WithSTD\"");
+    writeTxt("layout.txt",              "\"LAY26\"");
+    writeTxt("MatrixIDAamener.txt",     QString::number(allMatrices.size()));
 
-    writeFile("volume.txt",               "50");
-    writeFile("testProtocol.txt",         testProtocol);
-    writeFile("stdDilutionStep.txt",      stdDilution);
-    writeFile("stdSolID.txt",             standard["invenesis_solution_ID"].toString());
-    writeFile("stdUsed.txt",              standard["Samplealias"].toString());
-    writeFile("sourceQuadrant.txt",       "NA");
-    writeFile("targetQuadrant.txt",       "NA");
-    writeFile("layout.txt",               "LAY18");
-    writeFile("replicate.txt",            "1");
-    writeFile("projets.txt",              experimentJson["project_code"].toString());
-    writeFile("NombreMatrixAamener.txt",  "01");
-    writeFile("NbMatrixParDght_0.txt",    "0");
-    writeFile("NombreDghtAamener.txt",    "1");
-    writeFile("MatrixBarcodeIDActuel.txt",
-              standard["Containerbarcode"].toString());
+    // NbMatrixParDght_i.txt
+    for (int i = 0; i < plates.size(); ++i) {
+        const QJsonObject plate = plates.at(i).toObject();
+        const QJsonObject wells = plate.value("wells").toObject();
+        QSet<QString> thisSet;
+        for (const QString &key : wells.keys()) {
+            const QString cmpName = wells.value(key).toString();
+            if (cmpIdx.contains(cmpName)) {
+                const QString bc = cmpIdx[cmpName]
+                                       .value("container_id").toString();
+                if (bc != stdMatrix) thisSet.insert(bc);
+            }
+        }
+        writeTxt(QString("NbMatrixParDght_%1.txt").arg(i),
+                 QString::number(thisSet.size()));
+    }
 
-    /* ExpEnCours.txt */
-    QFile expFile(R"(C:\ProgramData\Tecan\EVOware\database\scripts\INVUseByTecan\txtFiles\ExpEnCours.txt)");
-    if (expFile.open(QIODevice::WriteOnly | QIODevice::Text))
-        QTextStream(&expFile) << experimentJson["experiment_code"].toString() << '\n';
+    writeTxt("NombreDghtAamener.txt",    QString::number(plates.size()));
+    writeTxt("NombreMatrixAamener.txt",  QString::number(allMatrices.size()));
+    writeTxt("projets.txt",              "\"" + projectCode + "\"");
+    writeTxt("replicate.txt",            "\"NA\"");
+    writeTxt("sourceQuadrant.txt",       "\"NA\"");
+    writeTxt("stdDilutionStep.txt",      QString::number(
+                                        testReqArr.at(0)
+                                            .toObject()
+                                            .value("dilution_steps")
+                                            .toInt()));
+    writeTxt("stdSolID.txt",             "\"" +
+                                 standard.value(
+                                             "invenesis_solution_ID")
+                                     .toString() + "\"");
+    writeTxt("stdStartConc.txt",         "\"NA\"");
+    writeTxt("stdUsed.txt",              "\"" +
+                                standard.value("Samplealias")
+                                    .toString() + "\"");
+    writeTxt("targetQuadrant.txt",       "\"NA\"");
+    writeTxt("testProtocol.txt",         "\"daughterHitPick\"");
+    writeTxt("volume.txt",               "50");
+    writeTxt("volumeUnite.txt",          "\"ul\"");
+    rootDir.cdUp();
+
+    // --- 9) PlateMapHitLW folder & per‐matrix CSVs ---
+    rootDir.mkdir("PlateMapHitLW");
+    rootDir.cd("PlateMapHitLW");
+
+    QMap<QString, QList<QJsonObject>> byMatrix;
+    for (const auto &vv : compounds) {
+        const auto o = vv.toObject();
+        const QString bc = o.value("container_id").toString();
+        if (!bc.isEmpty() && bc != stdMatrix)
+            byMatrix[bc].append(o);
+    }
+
+    const QString csvHdr =
+        "Containerbarcode;Samplealias;Containerposition;"
+        "Volume;VolumeUnit;Concentration;ConcentrationUnit;"
+        "UserdefValue1;UserdefValue2;UserdefValue3;UserdefValue4;UserdefValue5";
+
+    for (auto it = byMatrix.constBegin(); it != byMatrix.constEnd(); ++it) {
+        QFile f(rootDir.filePath(it.key() + ".csv"));
+        if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) continue;
+        QTextStream out(&f);
+        out << csvHdr << "\n";
+        for (const auto &cmp : it.value()) {
+            const QString bc    = cmp.value("container_id").toString();
+            const QString samp  = cmp.value("product_name").toString();
+            const QString pos   = cmp.value("well_id").toString();
+            const QString vol   = cmp.value("weight").toString();
+            const QString vUnit = cmp.value("weight_unit").toString();
+            const QString conc  = cmp.value("concentration").toString();
+            const QString cUnit = cmp.value("concentration_unit").toString();
+            const QString u1    = bc + "_" + pos;
+            const QString u2    = cmp.value("invenesis_solution_ID")
+                                   .toString();
+            const QString u3    = conc;
+            const QString u4    = QString::number(
+                testReqArr.at(0)
+                    .toObject()
+                    .value("dilution_steps")
+                    .toInt());
+            const QString u5    = projectCode;
+            out << QStringList{bc, samp, pos,
+                               vol, vUnit,
+                               conc, cUnit,
+                               u1, u2, u3, u4, u5}
+                       .join(';') << "\n";
+        }
+        f.close();
+    }
+    rootDir.cdUp();
+
+    // --- 10) hitlist.txt (merge PlateMapHitLW CSVs, single header) ---
+    {
+        QFile outF(rootDir.filePath("hitlist.txt"));
+        if (outF.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&outF);
+            bool wroteHeader = false;
+            QDir pm(rootDir.filePath("PlateMapHitLW"));
+            const QStringList files = pm.entryList(
+                QStringList{"*.csv"}, QDir::Files, QDir::Name);
+            for (const QString &fn : files) {
+                QFile inF(pm.filePath(fn));
+                if (!inF.open(QIODevice::ReadOnly | QIODevice::Text))
+                    continue;
+                QTextStream in(&inF);
+                bool firstLine = true;
+                while (!in.atEnd()) {
+                    QString line = in.readLine().trimmed();
+                    if (line.isEmpty()) continue;
+                    if (firstLine) {
+                        firstLine = false;
+                        if (!wroteHeader) {
+                            out << line << "\n";
+                            wroteHeader = true;
+                        }
+                    } else {
+                        out << line << "\n";
+                    }
+                }
+                inF.close();
+            }
+            outF.close();
+        }
+    }
+
+    // --- 11) ListeMatrix.txt + empty ListeMatrixLueTecan.txt ---
+    {
+        QFile mF(rootDir.filePath("ListeMatrix.txt"));
+        if (mF.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&mF);
+            out << stdMatrix << "\n";
+            for (const auto &bc : allMatrices) out << bc << "\n";
+            mF.close();
+        }
+    }
+    {
+        QFile eF(rootDir.filePath("ListeMatrixLueTecan.txt"));
+        eF.open(QIODevice::WriteOnly | QIODevice::Text);
+        eF.close();
+    }
+
+    showInfo(this, tr("Success"),
+             tr("Auxiliary files for “%1” written to:\n%2")
+                 .arg(experimentCode, rootDir.absolutePath()));
 }
 
+
+
+void TecanWindow::on_actionCreate_Plate_Map_triggered()
+{
+    PlateMapDialog dlg(this);
+    dlg.exec();
+}
 

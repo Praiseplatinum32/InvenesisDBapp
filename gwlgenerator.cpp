@@ -1,362 +1,236 @@
 #include "gwlgenerator.h"
-
-// Qt
 #include <QFile>
 #include <QJsonDocument>
-#include <QJsonArray>
-#include <QMessageBox>
-#include <QFileDialog>
-#include <QTextStream>
 #include <QDebug>
-#include <cmath>
 #include <algorithm>
 
-/* ===================================================================== */
-/*                    constants / helpers in anon ns                     */
-/* ===================================================================== */
-namespace {
-constexpr double kStdMotherVol = 20.0;   // µL compound for STD row A
-constexpr double kStdDmsoVol   = 5.0;    // µL DMSO    for STD row A
-constexpr int    kLinesPerUnit = 7;      // Touch→Final Wash per single‑tip unit
-}
+// — ctor loads the map and remembers testId + stockConc
+GWLGenerator::GWLGenerator(double dilutionFactor,
+                           const QString &testId,
+                           double         stockConcMicroM)
+    : dilutionFactor_{dilutionFactor}
+    , testId_{testId}
+    , stockConcMicroM_{stockConcMicroM}
+    , volumeMap_{ loadVolumeMap() }
+{}
 
-/* ------------------------------------------------------------------ */
-/* helper: convert JSON → stable bytes (for sorting arrays by element) */
-static QByteArray jsonBytes(const QJsonValue &v)
-{
-    switch (v.type()) {
-    case QJsonValue::Object: return QJsonDocument(v.toObject())
-                                   .toJson(QJsonDocument::Compact);
-    case QJsonValue::Array:  return QJsonDocument(v.toArray())
-                                   .toJson(QJsonDocument::Compact);
-    case QJsonValue::String: return v.toString().toUtf8();
-    case QJsonValue::Double: return QByteArray::number(v.toDouble(),'f',4);
-    case QJsonValue::Bool:   return v.toBool() ? "true" : "false";
-    default:                 return "null";
-    }
-}
-
-/* ===================================================================== */
-/*                           ctor                                        */
-/* ===================================================================== */
-GWLGenerator::GWLGenerator(double factor) : dilutionFactor_{factor} {}
-
-/* ===================================================================== */
-/*                      STANDARD hit‑pick block                          */
-/* ===================================================================== */
-static QStringList makeStandardHitPick(const QString &matrixBarcode,
-                                       const QString &matrixWell,
-                                       int            plateNum)
-{
-    const QString plateBarcode = QString("DP%1").arg(plateNum);
-    const QString tecSrc = QString("SRC_%1_%2").arg(matrixBarcode, matrixWell);
-    const QString tecDst = QString("DST_%1_A1").arg(plateBarcode);
-    const double  total  = kStdMotherVol + kStdDmsoVol;
-
-    return {
-        //"C;Commentaire**************  Hit-Pick STD  **************Commentaire",
-        //"A;TroughDMSOPreAspi;;;1;;50;DMSO_pre_aspiration",
-        // QString("A;;%1;Matrix05Tube;16;;30;P00DMSO_copy_Matrix").arg(matrixBarcode),
-        // "D;MPDaughter;;96daughterInv;1;;30;DMSONOMixHitList",
-        // "W;",
-        "A;TouchTip;;;DMSO_DIP_TANK;",
-        "WASH;Wash;;;WASH;",
-        "Aspirate;1;uL;DMSO_CUSHION_TANK;",
-        QString("Aspirate;%1;uL;DMSO_TANK;").arg(QString::number(kStdDmsoVol,'f',2)),
-        QString("Aspirate;%1;uL;%2;").arg(QString::number(kStdMotherVol,'f',2), tecSrc),
-        QString("Dispense;%1;uL;%2;").arg(QString::number(total,'f',2), tecDst),
-        "WASH;Final;;;WASH;"
-    };
-}
-
-/* ===================================================================== */
-/*                     public entry: generate file                        */
-/* ===================================================================== */
-QStringList GWLGenerator::generateTransferCommands(const QJsonObject &exp) const
-{
-    QStringList gwl;         // final result
-    QStringList warnings;
-
-    const QJsonArray plates     = exp["daughter_plates"].toArray();
-    const QJsonArray compounds  = exp["compounds"].toArray();
-    const QJsonArray requests   = exp["test_requests"].toArray();
-
-    const auto cmpIdx  = buildCompoundIndex(compounds);
-    const auto testIdx = buildTestIndex(requests);
-    const QJsonObject volMap = loadVolumeMap();
-
-    const QJsonObject stdObj   = exp["standard"].toObject();
-    const QString stdBarcode   = stdObj["Containerbarcode"].toString();
-    const QString stdWell      = stdObj["Containerposition"].toString();
-    const bool hasInv031       = [&]{
-        for (const QJsonValue &v : requests)
-            if (v.toObject()["requested_tests"].toString()
-                    .contains("INV-T-031", Qt::CaseInsensitive))
-                return true;
-        return false;
-    }();
-
-    /* ===== iterate plates =========================================== */
-    for (const QJsonValue &plateVal : plates)
-    {
-        const QJsonObject plate = plateVal.toObject();
-        const int plateNum      = plate["plate_number"].toInt();
-        const int steps         = plate["dilution_steps"].toInt(6);
-        const QJsonObject wells = plate["wells"].toObject();
-
-        /* 0‑‑write STANDARD block directly to final list -------------- */
-        gwl += makeStandardHitPick(stdBarcode, stdWell, plateNum);
-
-        QStringList singleTip;   // un‑batched 7‑line units
-
-        /* 1‑‑process every compound well ------------------------------ */
-        for (const QString &well : wells.keys())
-        {
-            const QString compound = wells[well].toString();
-            if (compound == "DMSO" || compound == "Standard") continue;
-
-            const auto cmpIt  = cmpIdx.find(compound);
-            const auto testIt = testIdx.find(compound);
-            if (cmpIt == cmpIdx.end() || testIt == testIdx.end()) {
-                warnings << QString("Compound '%1' missing lookup").arg(compound);
-                continue;
-            }
-
-            const double stock   = cmpIt->value("concentration").toString().toDouble();
-            const QString testId = testIt.value();
-            const QJsonObject rule = pickVolumeRule(testId, stock, volMap, &warnings);
-            if (rule.isEmpty()) continue;
-
-            /* first dilution into well (row B/C/…) */
-            singleTip += makeFirstDilution(compound, well, plateNum, *cmpIt, rule);
-
-            /* serial chain to the right */
-            const QString rowLetter = well.left(1);
-            const int     startCol  = well.mid(1).toInt();
-            singleTip += makeSerialDilution(rowLetter, startCol,
-                                            plateNum, steps-1,
-                                            totalWellVol_);
-
-            /* pure DMSO row H – same column */
-            const QString dmsoWell = QStringLiteral("H%1").arg(startCol);
-            const QString tecDst   = QStringLiteral("DST_DP%1_%2")
-                                       .arg(plateNum)          // %1  ← plate number
-                                       .arg(dmsoWell);         // %2  ← "H<n>"
-
-            singleTip << "A;TouchTip;;;DMSO_DIP_TANK;"
-                      << "WASH;Wash;;;WASH;"
-                      << "Aspirate;1;uL;DMSO_CUSHION_TANK;"
-                      << QStringLiteral("Aspirate;%1;uL;DMSO_TANK;")
-                             .arg(QString::number(totalWellVol_,'f',2))
-                      << QStringLiteral("Dispense;%1;uL;%2;")
-                             .arg(QString::number(totalWellVol_,'f',2), tecDst)
-                      << "WASH;Final;;;WASH;";
-
-        }
-
-        /* 2‑‑special INV‑T‑031 columns 11+12 -------------------------- */
-        if (hasInv031) {
-            /* col 11 standard */
-            singleTip += makeFirstDilution("STD031", "A11", plateNum,
-                                           {{"container_id",stdBarcode},
-                                            {"well_id",stdWell}},
-                                           {{"VolMother",kStdMotherVol},
-                                            {"DMSO",kStdDmsoVol},
-                                            {"test","INV-T-031"}});
-            /* col 12 pure DMSO */
-            const QString dmsoDst = QString("DST_DP%1_A12").arg(plateNum);
-            singleTip << "A;TouchTip;;;DMSO_DIP_TANK;"
-                      << "WASH;Wash;;;WASH;"
-                      << "Aspirate;1;uL;DMSO_CUSHION_TANK;"
-                      << QString("Aspirate;%1;uL;DMSO_TANK;")
-                           .arg(QString::number(totalWellVol_,'f',2))
-                      << QString("Dispense;%1;uL;%2;")
-                           .arg(QString::number(totalWellVol_,'f',2), dmsoDst)
-                      << "WASH;Final;;;WASH;";
-        }
-
-        /* 3‑‑batch compound/DMSO units column‑wise -------------------- */
-        gwl += makeEightChannelBlock(singleTip);
-    }
-
-    /* -------- prepend warnings ---------------------------- */
-    if (!warnings.isEmpty()) {
-        gwl.prepend("; Warnings:");
-        for (const QString &w : warnings) gwl << "; " + w;
-        gwl << "";
-    }
-    return gwl;
-}
-
-/* ===================================================================== */
-/*                      mapping helpers                                  */
-/* (unchanged from previous version)                                     */
-/* ===================================================================== */
-QJsonObject GWLGenerator::loadVolumeMap() const
-{
+// — load the JSON resource containing your volumeMap
+QJsonObject GWLGenerator::loadVolumeMap() const {
     QFile f(":/standardjson/jsonfile/volumeMap.json");
-    if (!f.open(QIODevice::ReadOnly)) {
-        qWarning() << "❌ volumeMap.json not found";
+    if (!f.open(QIODevice::ReadOnly))
         return {};
-    }
-    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+    auto doc = QJsonDocument::fromJson(f.readAll());
     return doc.isObject() ? doc.object() : QJsonObject{};
 }
 
-QJsonObject GWLGenerator::pickVolumeRule(const QString      &testId,
-                                         double              stockConc,
-                                         const QJsonObject  &map,
-                                         QStringList        *warn) const
+// — pick the bucket whose key (as number) is closest to stockConcMicroM
+QJsonArray
+GWLGenerator::pickVolumeRules(const QString &testId,
+                              double         stockConcMicroM) const
 {
-    if (!map.contains(testId)) {
-        if (warn) warn->append(QString("No volume rule for test '%1'").arg(testId));
-        return {};
-    }
-    const QJsonObject buckets = map[testId].toObject();
-    QJsonObject best;
-    double bestDiff = 1e9;
+    if (!volumeMap_.contains(testId)) return {};
+
+    QJsonObject buckets = volumeMap_.value(testId).toObject();
+    double bestDiff = std::numeric_limits<double>::infinity();
+    QString bestKey;
 
     for (const QString &k : buckets.keys()) {
-        bool ok=false; double c = k.toDouble(&ok); if (!ok) continue;
-        double diff = std::abs(c - stockConc);
-        if (diff < bestDiff) {
-            bestDiff = diff;
-            best = buckets[k].toArray().first().toObject();
+        bool ok;
+        double c = k.toDouble(&ok);
+        if (!ok) continue;
+        double d = qAbs(c - stockConcMicroM);
+        if (d < bestDiff) {
+            bestDiff = d;
+            bestKey  = k;
         }
     }
-    if (best.isEmpty() && warn)
-        warn->append(QString("No conc. rule for test '%1' (stock %2)")
-                         .arg(testId).arg(stockConc));
-    return best;
+    if (bestKey.isEmpty()) return {};
+
+    return buckets.value(bestKey).toArray();
 }
 
-QMap<QString,QJsonObject>
-GWLGenerator::buildCompoundIndex(const QJsonArray &arr) const
-{
-    QMap<QString,QJsonObject> m;
-    for (const QJsonValue &v : arr)
-        m[v["product_name"].toString()] = v.toObject();
-    return m;
+// — utility: A1=1, B1=2…H1=8, A2=9…H12=96
+int GWLGenerator::wellToIndex(const QString &well) const {
+    if (well.size() < 2) return 0;
+    int col = well.mid(1).toInt();
+    int row = well[0].unicode() - 'A' + 1;  // 'A'→1 … 'H'→8
+    return (col - 1)*8 + row;
 }
 
-QMap<QString,QString>
-GWLGenerator::buildTestIndex(const QJsonArray &arr) const
+// — 7-field aspirate / dispense records
+QString GWLGenerator::recA(const Labware &lab, int pos, double vol,
+                           const QString &lc, const QString &tubeID) const
 {
-    QMap<QString,QString> m;
-    for (const QJsonValue &v : arr)
-        m[v["compound_name"].toString()] = v["requested_tests"].toString();
-    return m;
+    return QString("A;%1;%2;%3;%4;%5;%6;%7")
+    .arg(lab.label)
+        .arg(lab.rackID)
+        .arg(lab.type)
+        .arg(pos)
+        .arg(tubeID)
+        .arg(QString::number(vol,'f',2))
+        .arg(lc);
 }
 
-/* ===================================================================== */
-/*               command generators (unchanged logic)                    */
-/* ===================================================================== */
-QStringList GWLGenerator::makeFirstDilution(const QString &compound,
-                                            const QString &dstWell,
-                                            int            plate,
-                                            const QJsonObject &cmp,
-                                            const QJsonObject &rule) const
+QString GWLGenerator::recD(const Labware &lab, int pos, double vol,
+                           const QString &lc, const QString &tubeID) const
 {
-    const QString plateBarcode = QString("DP%1").arg(plate);
-    const QString srcMatrix = cmp["container_id"].toString();
-    const QString srcWell   = cmp["well_id"].toString();
-    const QString tecSrc    = QString("SRC_%1_%2").arg(srcMatrix, srcWell);
-    const QString tecDst    = QString("DST_%1_%2").arg(plateBarcode, dstWell);
-
-    const double volCmp  = rule["VolMother"].toDouble();
-    const double volDmso = rule["DMSO"].toDouble();
-    const double total   = volCmp + volDmso;
-
-    QStringList cmd;
-    cmd << "A;TouchTip;;;DMSO_DIP_TANK;"
-        << "WASH;Wash;;;WASH;"
-        << "Aspirate;1;uL;DMSO_CUSHION_TANK;"
-        << QString("Aspirate;%1;uL;DMSO_TANK;")
-              .arg(QString::number(volDmso,'f',2))
-        << QString("Aspirate;%1;uL;%2;")
-              .arg(QString::number(volCmp,'f',2), tecSrc)
-        << QString("Dispense;%1;uL;%2;")
-              .arg(QString::number(total,'f',2), tecDst)
-        << "WASH;Final;;;WASH;";
-    return cmd;
+    return QString("D;%1;%2;%3;%4;%5;%6;%7")
+    .arg(lab.label)
+        .arg(lab.rackID)
+        .arg(lab.type)
+        .arg(pos)
+        .arg(tubeID)
+        .arg(QString::number(vol,'f',2))
+        .arg(lc);
 }
 
-QStringList GWLGenerator::makeSerialDilution(const QString &row,
-                                             int            startCol,
-                                             int            plate,
-                                             int            steps,
-                                             double         firstVol) const
-{
-    if (steps <= 0) return {};
-
-    const QString plateBarcode = QString("DP%1").arg(plate);
-    const double srcVol = firstVol / dilutionFactor_;
-    const QString volStr = QString::number(srcVol,'f',2);
-
-    QStringList cmd;
-    for (int i = 0; i < steps; ++i) {
-        const int srcCol = startCol + i;
-        const int dstCol = srcCol + 1;
-        const QString srcWell = row + QString::number(srcCol);
-        const QString dstWell = row + QString::number(dstCol);
-        const QString tecSrc = QString("DST_%1_%2").arg(plateBarcode, srcWell);
-        const QString tecDst = QString("DST_%1_%2").arg(plateBarcode, dstWell);
-
-        cmd << "A;TouchTip;;;DMSO_DIP_TANK;"
-            << "WASH;Wash;;;WASH;"
-            << "Aspirate;1;uL;DMSO_CUSHION_TANK;"
-            << QString("Aspirate;%1;uL;%2;").arg(volStr, tecSrc)
-            << QString("Dispense;%1;uL;%2;").arg(volStr, tecDst)
-            << "WASH;Final;;;WASH;";
-    }
-    return cmd;
+QString GWLGenerator::recW(int scheme) const {
+    return scheme == 1 ? "W;" : QString("W%1;").arg(scheme);
 }
 
-/* ===================================================================== */
-/*     batch 7‑line units by destination column (8‑channel head)         */
-/* ===================================================================== */
-QStringList GWLGenerator::makeEightChannelBlock(const QStringList &single) const
+QString GWLGenerator::recC(const QString &text) const {
+    return "C;" + text;
+}
+
+// — standard hit-pick
+QStringList
+GWLGenerator::makeStandardHitPick(const QJsonObject &stdObj,
+                                  int /*plateNum*/) const
 {
-    if (single.isEmpty()) return {};
+    QStringList cmds;
+    QString bc   = stdObj.value("Containerbarcode").toString();
+    QString well = stdObj.value("Containerposition").toString();
+    int     pos  = wellToIndex(well);
 
-    QMap<int,QList<QStringList>> columnBuckets;
+    cmds << recC("**************  Hit-Pick STD  **************")
+         << recA(troughPreAspi_, 1,    50.0, "DMSO_pre_aspiration");
 
-    for (int i = 0; i + kLinesPerUnit - 1 < single.size(); i += kLinesPerUnit) {
-        const QStringList unit = single.mid(i, kLinesPerUnit);
-        const QString dispLine = unit[5];                            // Dispense line
-        const int pos = dispLine.lastIndexOf('_');
-        const int col = dispLine.mid(pos+2).remove(';').toInt();
-        columnBuckets[col].append(unit);
+    {
+        Labware lw = stdMatrixLab_;
+        lw.rackID  = bc;
+        cmds << recA(lw, pos, 30.0, "P00DMSO_copy_Matrix");
     }
 
-    QStringList out;
-    for (auto it = columnBuckets.begin(); it != columnBuckets.end(); ++it)
-        for (const QStringList &u : it.value())
-            out += u;
-    return out;
+    cmds << recD(daughterLab_, wellToIndex("A1"), 30.0, "DMSONOMixHitList")
+         << recW();
+
+    return cmds;
 }
 
-/* ===================================================================== */
-/*                       optional file‑save                              */
-/* ===================================================================== */
-bool GWLGenerator::saveToFile(const QStringList &lines,
-                              const QString     &defaultName,
-                              QWidget           *parent)
+// — hit-pick compounds
+QStringList
+GWLGenerator::makeCompoundHitPick(const QJsonObject &cmpObj,
+                                  int /*plateNum*/) const
 {
-    const QString path = QFileDialog::getSaveFileName(parent, "Save GWL File",
-                                                      defaultName + ".gwl",
-                                                      "GWL files (*.gwl)");
-    if (path.isEmpty()) return false;
+    QStringList cmds;
+    QString bc   = cmpObj.value("container_id").toString();
+    QString well = cmpObj.value("well_id").toString();
+    int     src  = wellToIndex(well);
+    int     col  = well.mid(1).toInt();
+    QString dWell = QString("A%1").arg(col);
+    int     dst  = wellToIndex(dWell);
 
-    QFile f(path);
-    if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QMessageBox::critical(parent, "File Error", f.errorString());
-        return false;
+    cmds << recA(troughPreAspi_, 1, 50.0, "DMSO_pre_aspiration")
+         << recA(troughDilDMSO_, 1, 15.0, "DMSO");
+
+    {
+        Labware lw = cmpMatrixLab_;
+        lw.rackID  = bc;
+        cmds << recA(lw, src, 10.0, "P00DMSO_copy_Matrix");
     }
-    QTextStream(&f) << lines.join('\n');
-    f.close();
 
-    QMessageBox::information(parent, "Saved",
-                             QObject::tr("GWL saved to:\n%1").arg(path));
-    return true;
+    cmds << recD(daughterLab_, dst, 25.0, "DMSONOMixHitList")
+         << recW();
+
+    return cmds;
+}
+
+// — serial dilution, driven by volumeMap rules
+QStringList
+GWLGenerator::makeSerialDilution(const QJsonObject &plateObj,
+                                 const QJsonObject &cmpObj,
+                                 int /*plateNum*/) const
+{
+    QStringList cmds;
+
+    // 1) build sorted path of wells for this compound
+    QStringList path;
+    QString product = cmpObj.value("product_name").toString();
+    auto wellsObj   = plateObj.value("wells").toObject();
+
+    for (const QString &w : wellsObj.keys())
+        if (wellsObj.value(w).toString() == product)
+            path << w;
+
+    std::sort(path.begin(), path.end(),
+              [this](const QString &a, const QString &b){
+                  return wellToIndex(a) < wellToIndex(b);
+              });
+
+    // 2) pull the array of rules for this test+stock
+    //    stockConcMicroM_ was passed in ctor
+    QJsonArray rules = pickVolumeRules(testId_, stockConcMicroM_);
+
+    // 3) for each step i→i+1, grab rule[i] or last rule if >count
+    for (int i = 0; i + 1 < path.size(); ++i) {
+        int   srcPos = wellToIndex(path[i]);
+        int   dstPos = wellToIndex(path[i+1]);
+        int   idx    = qMin(i, rules.count() - 1);
+        auto rule = rules.at(idx).toObject();
+
+        double volMother  = rule.value("VolMother").toDouble();
+        double volDiluent = rule.value("DMSO").toDouble();
+        double totalVol   = volMother + volDiluent;
+
+        cmds << recA(troughPreAspi_, 1,               50.0,           "DMSO_pre_aspiration")
+             << recA(troughDilDMSO_, 1,               volDiluent,     "DMSO")
+             << recA(daughterLab_,     srcPos,        volMother,      "PinvDMSO")
+             << recD(daughterLab_,     dstPos,        totalVol,       "DMSOMixHitList")
+             << recW();
+    }
+
+    return cmds;
+}
+
+// — top‐level entry (no changes except ctor signature & passing testId/stockConc)
+QStringList
+GWLGenerator::generateTransferCommands(const QJsonObject &exp) const
+{
+    QStringList gwl;
+
+    // unwrap
+    auto stdObj    = exp.value("standard").toObject();
+    auto plates    = exp.value("daughter_plates").toArray();
+    auto comps     = exp.value("compounds").toArray();
+
+    // 1) standard
+    for (auto pval : plates) {
+        auto plateObj = pval.toObject();
+        gwl += makeStandardHitPick(stdObj, plateObj.value("plate_number").toInt());
+
+        // 2) hit-pick compounds (only their own matrix)
+        for (auto cval : comps) {
+            auto cmpObj = cval.toObject();
+            if (cmpObj.value("container_id").toString()
+                != stdObj.value("Containerbarcode").toString())
+                gwl += makeCompoundHitPick(cmpObj, plateObj.value("plate_number").toInt());
+        }
+
+        // 3) dilutions
+        gwl << recC("**************  Hit-Pick Dilutions  **************");
+        for (auto cval : comps) {
+            auto cmpObj = cval.toObject();
+            if (cmpObj.value("container_id").toString()
+                != stdObj.value("Containerbarcode").toString())
+                gwl += makeSerialDilution(plateObj, cmpObj, plateObj.value("plate_number").toInt());
+        }
+    }
+
+    // 4) final extra‐wash
+    gwl << recC("**********  Lavage supplementaire (scheme 2)  **********");
+    for (int i = 1; i <= 8; ++i)
+        gwl << recA(lavageLab_, i, 50.0, "LavageDMSO")
+            << recW(2);
+
+    return gwl;
 }

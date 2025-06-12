@@ -35,6 +35,7 @@ public:
     QAction *actionSave;
     QAction *actionLoad;
     QAction *actionGenerate_GWL;
+    QAction *actionCreate_Plate_Map;
     QWidget *centralwidget;
     QSplitter *splitter_3;
     QSplitter *splitter;
@@ -73,6 +74,12 @@ public:
         QIcon icon2;
         icon2.addFile(QString::fromUtf8(":/icon/icon/telechargement-de-fichiers.png"), QSize(), QIcon::Mode::Normal, QIcon::State::Off);
         actionGenerate_GWL->setIcon(icon2);
+        actionCreate_Plate_Map = new QAction(TecanWindow);
+        actionCreate_Plate_Map->setObjectName("actionCreate_Plate_Map");
+        QIcon icon3;
+        icon3.addFile(QString::fromUtf8(":/icon/icon/platemap.png"), QSize(), QIcon::Mode::Normal, QIcon::State::Off);
+        actionCreate_Plate_Map->setIcon(icon3);
+        actionCreate_Plate_Map->setMenuRole(QAction::MenuRole::NoRole);
         centralwidget = new QWidget(TecanWindow);
         centralwidget->setObjectName("centralwidget");
         splitter_3 = new QSplitter(centralwidget);
@@ -107,9 +114,9 @@ public:
         verticalLayout->setContentsMargins(0, 0, 0, 0);
         clearPlatesButton = new QPushButton(layoutWidget);
         clearPlatesButton->setObjectName("clearPlatesButton");
-        QIcon icon3;
-        icon3.addFile(QString::fromUtf8("icon/effacer.png"), QSize(), QIcon::Mode::Normal, QIcon::State::Off);
-        clearPlatesButton->setIcon(icon3);
+        QIcon icon4;
+        icon4.addFile(QString::fromUtf8("icon/effacer.png"), QSize(), QIcon::Mode::Normal, QIcon::State::Off);
+        clearPlatesButton->setIcon(icon4);
 
         verticalLayout->addWidget(clearPlatesButton);
 
@@ -146,6 +153,7 @@ public:
         toolBar->addAction(actionSave);
         toolBar->addAction(actionLoad);
         toolBar->addAction(actionGenerate_GWL);
+        toolBar->addAction(actionCreate_Plate_Map);
 
         retranslateUi(TecanWindow);
 
@@ -158,6 +166,7 @@ public:
         actionSave->setText(QCoreApplication::translate("TecanWindow", "Save", nullptr));
         actionLoad->setText(QCoreApplication::translate("TecanWindow", "Load", nullptr));
         actionGenerate_GWL->setText(QCoreApplication::translate("TecanWindow", "Generate GWL", nullptr));
+        actionCreate_Plate_Map->setText(QCoreApplication::translate("TecanWindow", "Create Plate Map", nullptr));
         clearPlatesButton->setText(QCoreApplication::translate("TecanWindow", "Clear Daughter Plates", nullptr));
         menuActions->setTitle(QCoreApplication::translate("TecanWindow", "Actions", nullptr));
         toolBar->setWindowTitle(QCoreApplication::translate("TecanWindow", "toolBar", nullptr));
