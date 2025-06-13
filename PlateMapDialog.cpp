@@ -15,6 +15,7 @@ PlateMapDialog::PlateMapDialog(QWidget* parent)
     plate384 = new PlateWidget(16, 24, this);
     plate96  = new PlateWidget(8, 12, this);
 
+    // Mode selection
     QRadioButton* noneBtn   = new QRadioButton("None", this);
     QRadioButton* sampleBtn = new QRadioButton("Sample", this);
     QRadioButton* dmsoBtn   = new QRadioButton("DMSO", this);
@@ -29,18 +30,18 @@ PlateMapDialog::PlateMapDialog(QWidget* parent)
     connect(modeGroup, &QButtonGroup::idClicked,
             this, &PlateMapDialog::onSelectionChanged);
 
+    // Sample ID selector
     sampleCombo = new QComboBox(this);
-    for (int i = 1; i <= 10; ++i)
+    for (int i = 1; i <= 384; ++i)
         sampleCombo->addItem(QString::number(i), i);
     connect(sampleCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &PlateMapDialog::onSampleChanged);
 
-    dilutionSpin = new QDoubleSpinBox(this);
-    dilutionSpin->setRange(0.01, 100.0);
-    dilutionSpin->setDecimals(3);
-    dilutionSpin->setSingleStep(0.1);
-    dilutionSpin->setValue(1.0);
-    connect(dilutionSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+    // Dilution step selector
+    dilutionSpin = new QSpinBox(this);
+    dilutionSpin->setRange(1, 24);
+    dilutionSpin->setValue(1);
+    connect(dilutionSpin, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &PlateMapDialog::onDilutionChanged);
 
     QHBoxLayout* controlsLayout = new QHBoxLayout;
@@ -48,11 +49,12 @@ PlateMapDialog::PlateMapDialog(QWidget* parent)
     controlsLayout->addWidget(sampleBtn);
     controlsLayout->addWidget(new QLabel("Sample ID:"));
     controlsLayout->addWidget(sampleCombo);
-    controlsLayout->addWidget(new QLabel("Dilution:"));
+    controlsLayout->addWidget(new QLabel("Dilution Step:"));
     controlsLayout->addWidget(dilutionSpin);
     controlsLayout->addWidget(dmsoBtn);
     controlsLayout->addWidget(stdBtn);
 
+    // Buttons for operations
     export384Btn = new QPushButton("Export 384 CSV");
     load384Btn   = new QPushButton("Load 384 CSV");
     clear384Btn  = new QPushButton("Clear 384");
@@ -107,17 +109,16 @@ void PlateMapDialog::onSampleChanged(int index)
     plate96->setCurrentSample(id);
 }
 
-void PlateMapDialog::onDilutionChanged(double value)
+void PlateMapDialog::onDilutionChanged(int value)
 {
-    plate384->setCurrentDilution(value);
-    plate96->setCurrentDilution(value);
+    plate384->setCurrentDilutionStep(value);
+    plate96->setCurrentDilutionStep(value);
 }
 
 void PlateMapDialog::writeCSV(const QString& filename, PlateWidget* widget, int wells)
 {
     QString filePath = QFileDialog::getSaveFileName(this, "Save CSV", filename, "CSV Files (*.csv)");
-    if (filePath.isEmpty())
-        return;
+    if (filePath.isEmpty()) return;
 
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
@@ -132,13 +133,12 @@ void PlateMapDialog::writeCSV(const QString& filename, PlateWidget* widget, int 
     int cols = widget->cols();
     for (int i = 0; i < layout.size(); ++i) {
         const auto& wd = layout[i];
-        if (wd.type == PlateWidget::None)
-            continue;
+        if (wd.type == PlateWidget::None) continue;
         int row = i / cols;
         int col = i % cols;
         ts << QChar('A' + row) << (col + 1) << ",";
         if (wd.type == PlateWidget::Sample) {
-            ts << "SAMPLE," << wd.sampleId << "," << wd.dilution;
+            ts << "SAMPLE," << wd.sampleId << "," << wd.dilutionStep;
         } else if (wd.type == PlateWidget::DMSO) {
             ts << "DMSO";
         } else /* Standard */ {
@@ -161,7 +161,7 @@ void PlateMapDialog::load384()
         return;
     }
     QTextStream ts(&file);
-    ts.readLine(); // skip header
+    ts.readLine(); // header
 
     int cols = plate384->cols();
     int rows = plate384->rows();
@@ -180,7 +180,7 @@ void PlateMapDialog::load384()
         if (t == "SAMPLE" && parts.size() >= 4) {
             wd.type = PlateWidget::Sample;
             wd.sampleId = parts[2].toInt();
-            wd.dilution = parts[3].toDouble();
+            wd.dilutionStep = parts[3].toInt();
         } else if (t == "DMSO") {
             wd.type = PlateWidget::DMSO;
         } else if (t == "STANDARD") {
@@ -220,7 +220,7 @@ void PlateMapDialog::load96()
         if (t == "SAMPLE" && parts.size() >= 4) {
             wd.type = PlateWidget::Sample;
             wd.sampleId = parts[2].toInt();
-            wd.dilution = parts[3].toDouble();
+            wd.dilutionStep = parts[3].toInt();
         } else if (t == "DMSO") {
             wd.type = PlateWidget::DMSO;
         } else if (t == "STANDARD") {

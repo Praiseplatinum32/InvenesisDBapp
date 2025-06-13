@@ -1,3 +1,6 @@
+#ifndef PLATEMAPDIALOG_H
+#define PLATEMAPDIALOG_H
+
 #pragma once
 
 #include <QDialog>
@@ -5,7 +8,7 @@
 #include <QButtonGroup>
 #include <QPushButton>
 #include <QComboBox>
-#include <QDoubleSpinBox>
+#include <QSpinBox>
 #include <QLabel>
 #include "PlateWidget.h"
 
@@ -21,14 +24,14 @@ private slots:
     void load96();
     void onSelectionChanged(int id);
     void onSampleChanged(int index);
-    void onDilutionChanged(double value);
+    void onDilutionChanged(int value);
 
 private:
     PlateWidget* plate384;
     PlateWidget* plate96;
     QButtonGroup* modeGroup;
     QComboBox* sampleCombo;
-    QDoubleSpinBox* dilutionSpin;
+    QSpinBox* dilutionSpin;
     QPushButton* export384Btn;
     QPushButton* load384Btn;
     QPushButton* clear384Btn;
@@ -40,3 +43,6 @@ private:
 
     void writeCSV(const QString& filename, PlateWidget* widget, int wells);
 };
+
+
+#endif

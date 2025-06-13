@@ -9,7 +9,7 @@ PlateWidget::PlateWidget(int rows, int cols, QWidget* parent)
     , m_layout(rows * cols)
     , m_currentType(None)
     , m_currentSample(1)
-    , m_currentDilution(1.0)
+    , m_currentDilutionStep(1)
     , m_rubberBand(new QRubberBand(QRubberBand::Rectangle, this))
     , m_selecting(false)
 {
@@ -60,12 +60,12 @@ void PlateWidget::setCurrentWellType(PlateWidget::WellType type)
 
 void PlateWidget::setCurrentSample(int id)
 {
-    m_currentSample = id;
+    m_currentSample = qBound(1, id, m_rows * m_cols);
 }
 
-void PlateWidget::setCurrentDilution(double dil)
+void PlateWidget::setCurrentDilutionStep(int step)
 {
-    m_currentDilution = dil;
+    m_currentDilutionStep = qBound(1, step, m_cols);
 }
 
 QRect PlateWidget::cellRect(int row, int col) const
@@ -75,37 +75,56 @@ QRect PlateWidget::cellRect(int row, int col) const
     return QRect(x + 1, y + 1, m_cellSize - 2, m_cellSize - 2);
 }
 
+// Generate a unique hue per sampleId, and adjust brightness per dilution
+QColor PlateWidget::sampleColor(int sampleId, int dilutionStep) const
+{
+    int hue = (sampleId * 137) % 360;
+    int sat = 200;
+    const int minVal = 55;
+    const int maxVal = 255;
+    int val = minVal + ((dilutionStep - 1) * (maxVal - minVal)) / (m_cols - 1);
+    val = qBound(minVal, val, maxVal);
+    return QColor::fromHsv(hue, sat, val);
+}
+
 void PlateWidget::paintEvent(QPaintEvent* /*event*/)
 {
-    QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing);
-
-    // Draw column labels
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing);
+    // labels
     for (int c = 0; c < m_cols; ++c) {
         int x = m_labelMargin + c * m_cellSize + m_cellSize / 2;
-        painter.drawText(x - 5, m_labelMargin / 2 + 6, QString::number(c + 1));
+        p.drawText(x - 5, m_labelMargin / 2 + 6, QString::number(c + 1));
     }
-    // Draw row labels
     for (int r = 0; r < m_rows; ++r) {
         int y = m_labelMargin + r * m_cellSize + m_cellSize / 2;
-        painter.drawText(5, y + 5, QString(QChar('A' + r)));
+        p.drawText(5, y + 5, QString(QChar('A' + r)));
     }
-    // Draw wells
+    // wells
     for (int r = 0; r < m_rows; ++r) {
         for (int c = 0; c < m_cols; ++c) {
             QRect rect = cellRect(r, c);
             const WellData& wd = m_layout[r * m_cols + c];
             QColor fill = Qt::white;
-            if (wd.type == Sample)   fill = Qt::blue;
-            if (wd.type == DMSO)     fill = QColor(152, 251, 152);
-            if (wd.type == Standard) fill = Qt::red;
-
-            painter.fillRect(rect, fill);
-            painter.setPen(Qt::black);
-            painter.drawRect(rect);
+            switch (wd.type) {
+            case Sample:
+                fill = sampleColor(wd.sampleId, wd.dilutionStep);
+                break;
+            case DMSO:
+                fill = QColor(152, 251, 152);
+                break;
+            case Standard:
+                fill = Qt::red;
+                break;
+            default:
+                break;
+            }
+            p.fillRect(rect, fill);
+            p.setPen(Qt::black);
+            p.drawRect(rect);
             if (wd.type == Sample) {
-                painter.drawText(rect, Qt::AlignCenter,
-                                 QString("S%1\n%2x").arg(wd.sampleId).arg(wd.dilution));
+                p.drawText(rect, Qt::AlignCenter,
+                           QString("S%1 %2").arg(wd.sampleId).arg(wd.dilutionStep));
             }
         }
     }
@@ -163,7 +182,7 @@ void PlateWidget::applySelectionRect(const QRect& rect)
                 }
                 continue;
             }
-            m_layout[idx] = WellData{m_currentType, m_currentSample, m_currentDilution};
+            m_layout[idx] = WellData{m_currentType, m_currentSample, m_currentDilutionStep};
         }
     }
     update(); emit layoutChanged();
@@ -177,7 +196,6 @@ void PlateWidget::setWellAt(const QPoint& pos)
     int col = x / m_cellSize;
     int row = y / m_cellSize;
     if (row < 0 || row >= m_rows || col < 0 || col >= m_cols) return;
-
     int idx = row * m_cols + col;
     if (m_layout[idx].type != None && m_currentType != None &&
         m_layout[idx].type != m_currentType) {
@@ -185,6 +203,6 @@ void PlateWidget::setWellAt(const QPoint& pos)
                              "Cannot overwrite non-empty well!");
         return;
     }
-    m_layout[idx] = WellData{m_currentType, m_currentSample, m_currentDilution};
+    m_layout[idx] = WellData{m_currentType, m_currentSample, m_currentDilutionStep};
     update(); emit layoutChanged();
 }

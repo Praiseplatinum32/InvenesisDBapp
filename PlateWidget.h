@@ -1,3 +1,6 @@
+#ifndef PLATEWIDGET_H
+#define PLATEWIDGET_H
+
 #pragma once
 
 #include <QWidget>
@@ -7,6 +10,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QMessageBox>
+#include <QColor>
 
 class PlateWidget : public QWidget {
     Q_OBJECT
@@ -15,7 +19,7 @@ public:
     struct WellData {
         WellType type = None;
         int sampleId = 1;
-        double dilution = 1.0;
+        int dilutionStep = 1;
     };
 
     explicit PlateWidget(int rows, int cols, QWidget* parent = nullptr);
@@ -26,7 +30,7 @@ public:
 
     void setCurrentWellType(WellType type);
     void setCurrentSample(int id);
-    void setCurrentDilution(double dil);
+    void setCurrentDilutionStep(int step);
     void undo();
 
     int rows() const { return m_rows; }
@@ -49,7 +53,7 @@ private:
     QVector<WellData> m_layout;
     WellType m_currentType;
     int m_currentSample;
-    double m_currentDilution;
+    int m_currentDilutionStep;
     QStack<QVector<WellData>> m_undoStack;
     QRubberBand* m_rubberBand;
     QPoint m_dragStart;
@@ -59,5 +63,7 @@ private:
     void saveState();
     void applySelectionRect(const QRect& rect);
     void setWellAt(const QPoint& pos);
-};
 
+    QColor sampleColor(int sampleId, int dilutionStep) const;
+};
+#endif
