@@ -1,4 +1,9 @@
 #include "PlateWidget.h"
+#include <QPainter>
+#include <QMouseEvent>
+#include <QMessageBox>
+#include <QRubberBand>
+#include <QDebug>
 
 PlateWidget::PlateWidget(int rows, int cols, QWidget* parent)
     : QWidget(parent)
@@ -12,9 +17,14 @@ PlateWidget::PlateWidget(int rows, int cols, QWidget* parent)
     , m_currentDilutionStep(1)
     , m_rubberBand(new QRubberBand(QRubberBand::Rectangle, this))
     , m_selecting(false)
+    , m_serialSelecting(false)
 {
-    setMinimumSize(m_labelMargin + m_cols * m_cellSize + 1,
-                   m_labelMargin + m_rows * m_cellSize + 1);
+    setFocusPolicy(Qt::StrongFocus);
+    setAttribute(Qt::WA_Hover);
+    setMinimumSize(
+        m_labelMargin + m_cols * m_cellSize + 1,
+        m_labelMargin + m_rows * m_cellSize + 1
+        );
     setMouseTracking(true);
 }
 
@@ -27,7 +37,8 @@ void PlateWidget::saveState()
 
 void PlateWidget::undo()
 {
-    if (m_undoStack.isEmpty()) return;
+    if (m_undoStack.isEmpty())
+        return;
     m_layout = m_undoStack.pop();
     update();
     emit layoutChanged();
@@ -36,16 +47,20 @@ void PlateWidget::undo()
 void PlateWidget::clearLayout()
 {
     saveState();
-    for (auto& w : m_layout) w = WellData();
-    update(); emit layoutChanged();
+    for (auto &wd : m_layout)
+        wd = WellData();
+    update();
+    emit layoutChanged();
 }
 
-void PlateWidget::loadLayout(const QVector<WellData>& layout)
+void PlateWidget::loadLayout(const QVector<WellData> &layout)
 {
-    if (layout.size() != m_rows * m_cols) return;
+    if (layout.size() != m_rows * m_cols)
+        return;
     saveState();
     m_layout = layout;
-    update(); emit layoutChanged();
+    update();
+    emit layoutChanged();
 }
 
 QVector<PlateWidget::WellData> PlateWidget::layout() const
@@ -75,36 +90,63 @@ QRect PlateWidget::cellRect(int row, int col) const
     return QRect(x + 1, y + 1, m_cellSize - 2, m_cellSize - 2);
 }
 
-// Generate a unique hue per sampleId, and adjust brightness per dilution
 QColor PlateWidget::sampleColor(int sampleId, int dilutionStep) const
 {
+    // Unique hue per sample
     int hue = (sampleId * 137) % 360;
     int sat = 200;
-    const int minVal = 55;
-    const int maxVal = 255;
-    int val = minVal + ((dilutionStep - 1) * (maxVal - minVal)) / (m_cols - 1);
-    val = qBound(minVal, val, maxVal);
+    // Darkest at step=1, brightest at step=m_cols
+    const int dark = 55;
+    const int bright = 255;
+    int val = dark + ( (dilutionStep - 1) * (bright - dark) ) / (m_cols - 1);
+    val = qBound(dark, val, bright);
     return QColor::fromHsv(hue, sat, val);
 }
 
-void PlateWidget::paintEvent(QPaintEvent* /*event*/)
+void PlateWidget::paintEvent(QPaintEvent*)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
-    // labels
-    for (int c = 0; c < m_cols; ++c) {
-        int x = m_labelMargin + c * m_cellSize + m_cellSize / 2;
-        p.drawText(x - 5, m_labelMargin / 2 + 6, QString::number(c + 1));
-    }
+
+    // Draw row labels (single-letter for ≤26 rows, else two-letter)
     for (int r = 0; r < m_rows; ++r) {
-        int y = m_labelMargin + r * m_cellSize + m_cellSize / 2;
-        p.drawText(5, y + 5, QString(QChar('A' + r)));
+        QString rowLabel;
+        if (m_rows <= 26) {
+            rowLabel = QChar('A' + r);
+        } else {
+            int first  = r / 26;
+            int second = r % 26;
+            rowLabel = QString("%1%2")
+                           .arg(QChar('A' + first))
+                           .arg(QChar('A' + second));
+        }
+        QRect lr(0,
+                 m_labelMargin + r * m_cellSize,
+                 m_labelMargin,
+                 m_cellSize);
+        p.drawText(lr, Qt::AlignCenter, rowLabel);
     }
-    // wells
+
+    // Draw column labels (zero-padded if >9)
+    for (int c = 0; c < m_cols; ++c) {
+        QString colLabel = (m_cols > 9)
+        ? QString("%1").arg(c + 1, 2, 10, QChar('0'))
+        : QString::number(c + 1);
+
+        QRect lc(m_labelMargin + c * m_cellSize,
+                 0,
+                 m_cellSize,
+                 m_labelMargin);
+        p.drawText(lc, Qt::AlignCenter, colLabel);
+    }
+
+    // Draw wells (unchanged)
     for (int r = 0; r < m_rows; ++r) {
         for (int c = 0; c < m_cols; ++c) {
+            int idx = r * m_cols + c;
             QRect rect = cellRect(r, c);
-            const WellData& wd = m_layout[r * m_cols + c];
+            const WellData &wd = m_layout[idx];
+
             QColor fill = Qt::white;
             switch (wd.type) {
             case Sample:
@@ -122,9 +164,15 @@ void PlateWidget::paintEvent(QPaintEvent* /*event*/)
             p.fillRect(rect, fill);
             p.setPen(Qt::black);
             p.drawRect(rect);
+
             if (wd.type == Sample) {
+                QFont f = p.font();
+                f.setPointSize(m_cellSize / 5);
+                p.setFont(f);
                 p.drawText(rect, Qt::AlignCenter,
-                           QString("S%1 %2").arg(wd.sampleId).arg(wd.dilutionStep));
+                           QString("S%1\n%2")
+                               .arg(wd.sampleId)
+                               .arg(wd.dilutionStep));
             }
         }
     }
@@ -132,12 +180,30 @@ void PlateWidget::paintEvent(QPaintEvent* /*event*/)
 
 void PlateWidget::mousePressEvent(QMouseEvent* event)
 {
-    if (event->modifiers() & Qt::ShiftModifier) {
-        m_selecting = true;
+    Qt::KeyboardModifiers mods = event->modifiers();
+    bool shift = mods.testFlag(Qt::ShiftModifier);
+    bool ctrl  = mods.testFlag(Qt::ControlModifier);
+
+    // 1) Serial‐dilution rectangle: Ctrl+Shift in Sample mode
+    if (shift && ctrl && m_currentType == Sample) {
+        saveState();
+        m_serialSelecting = true;
+        m_selecting = false;
         m_dragStart = event->pos();
         m_rubberBand->setGeometry(QRect(m_dragStart, QSize()));
         m_rubberBand->show();
-    } else {
+    }
+    // 2) Normal rectangle selection: Shift in any non‐None mode
+    else if (shift && m_currentType != None) {
+        saveState();
+        m_selecting = true;
+        m_serialSelecting = false;
+        m_dragStart = event->pos();
+        m_rubberBand->setGeometry(QRect(m_dragStart, QSize()));
+        m_rubberBand->show();
+    }
+    // 3) Single‐well click (all modes)
+    else {
         saveState();
         setWellAt(event->pos());
     }
@@ -145,22 +211,28 @@ void PlateWidget::mousePressEvent(QMouseEvent* event)
 
 void PlateWidget::mouseMoveEvent(QMouseEvent* event)
 {
-    if (m_selecting) {
+    if (m_selecting || m_serialSelecting) {
         QRect r(m_dragStart, event->pos());
         m_rubberBand->setGeometry(r.normalized());
-    } else if (event->buttons() & Qt::LeftButton) {
+    }
+    else if (event->buttons() & Qt::LeftButton) {
         setWellAt(event->pos());
     }
 }
 
 void PlateWidget::mouseReleaseEvent(QMouseEvent* event)
 {
-    if (m_selecting) {
+    if (m_serialSelecting) {
         m_rubberBand->hide();
-        saveState();
+        applySerialSelectionRect(m_rubberBand->geometry());
+        m_serialSelecting = false;
+    }
+    else if (m_selecting) {
+        m_rubberBand->hide();
         applySelectionRect(m_rubberBand->geometry());
         m_selecting = false;
-    } else {
+    }
+    else {
         setWellAt(event->pos());
     }
 }
@@ -170,39 +242,87 @@ void PlateWidget::applySelectionRect(const QRect& rect)
     bool warned = false;
     for (int r = 0; r < m_rows; ++r) {
         for (int c = 0; c < m_cols; ++c) {
-            QRect cell = cellRect(r, c);
             int idx = r * m_cols + c;
-            if (!rect.intersects(cell)) continue;
-            if (m_layout[idx].type != None && m_currentType != None &&
-                m_layout[idx].type != m_currentType) {
+            QRect cell = cellRect(r, c);
+            if (!rect.intersects(cell))
+                continue;
+            if (m_layout[idx].type != None
+                && m_currentType != None
+                && m_layout[idx].type != m_currentType)
+            {
                 if (!warned) {
-                    QMessageBox::warning(this, "Overlap Detected",
-                                         "Cannot overwrite non-empty wells!");
+                    QMessageBox::warning(
+                        this,
+                        "Overlap",
+                        "Cannot overwrite non-empty wells!"
+                        );
                     warned = true;
                 }
                 continue;
             }
-            m_layout[idx] = WellData{m_currentType, m_currentSample, m_currentDilutionStep};
+            m_layout[idx] = WellData{m_currentType,
+                                     m_currentSample,
+                                     m_currentDilutionStep};
         }
     }
-    update(); emit layoutChanged();
+    update();
+    emit layoutChanged();
+}
+
+void PlateWidget::applySerialSelectionRect(const QRect& rect)
+{
+    int r0 = (rect.top() - m_labelMargin) / m_cellSize;
+    int c0 = (rect.left() - m_labelMargin) / m_cellSize;
+    int r1 = (rect.bottom() - m_labelMargin) / m_cellSize;
+    int c1 = (rect.right() - m_labelMargin) / m_cellSize;
+    r0 = qBound(0, r0, m_rows - 1);
+    r1 = qBound(0, r1, m_rows - 1);
+    c0 = qBound(0, c0, m_cols - 1);
+    c1 = qBound(0, c1, m_cols - 1);
+    if (r1 < r0) std::swap(r0, r1);
+    if (c1 < c0) std::swap(c0, c1);
+
+    for (int r = r0; r <= r1; ++r) {
+        for (int c = c0; c <= c1; ++c) {
+            int idx = r * m_cols + c;
+            int sample = m_currentSample + (r - r0);
+            int dil    = m_currentDilutionStep + (c - c0);
+            sample = qBound(1, sample, m_rows * m_cols);
+            dil    = qBound(1, dil, m_cols);
+            m_layout[idx] = WellData{m_currentType, sample, dil};
+        }
+    }
+    update();
+    emit layoutChanged();
 }
 
 void PlateWidget::setWellAt(const QPoint& pos)
 {
     int x = pos.x() - m_labelMargin;
     int y = pos.y() - m_labelMargin;
-    if (x < 0 || y < 0) return;
-    int col = x / m_cellSize;
-    int row = y / m_cellSize;
-    if (row < 0 || row >= m_rows || col < 0 || col >= m_cols) return;
-    int idx = row * m_cols + col;
-    if (m_layout[idx].type != None && m_currentType != None &&
-        m_layout[idx].type != m_currentType) {
-        QMessageBox::warning(this, "Overlap Detected",
-                             "Cannot overwrite non-empty well!");
+    if (x < 0 || y < 0)
+        return;
+    int c = x / m_cellSize;
+    int r = y / m_cellSize;
+    if (r < 0 || r >= m_rows || c < 0 || c >= m_cols)
+        return;
+
+    int idx = r * m_cols + c;
+    if (m_layout[idx].type != None
+        && m_currentType != None
+        && m_layout[idx].type != m_currentType)
+    {
+        QMessageBox::warning(
+            this,
+            "Overlap",
+            "Cannot overwrite non-empty well!"
+            );
         return;
     }
-    m_layout[idx] = WellData{m_currentType, m_currentSample, m_currentDilutionStep};
-    update(); emit layoutChanged();
+
+    m_layout[idx] = WellData{m_currentType,
+                             m_currentSample,
+                             m_currentDilutionStep};
+    update();
+    emit layoutChanged();
 }

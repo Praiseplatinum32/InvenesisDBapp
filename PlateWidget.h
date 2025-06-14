@@ -58,12 +58,13 @@ private:
     QRubberBand* m_rubberBand;
     QPoint m_dragStart;
     bool m_selecting;
+    bool m_serialSelecting;
 
     QRect cellRect(int row, int col) const;
     void saveState();
     void applySelectionRect(const QRect& rect);
+    void applySerialSelectionRect(const QRect& rect);
     void setWellAt(const QPoint& pos);
-
     QColor sampleColor(int sampleId, int dilutionStep) const;
 };
 #endif

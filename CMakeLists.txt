@@ -82,6 +82,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         standardlibrary.h standardlibrary.cpp
         .gitignore
         PlateWidget.h PlateWidget.cpp
+        Plate1536Dialog.h Plate1536Dialog.cpp
 )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET Invenesisapp APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
