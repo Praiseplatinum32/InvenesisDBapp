@@ -9,10 +9,15 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Qt
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql)
+
+# Includes
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/openwall_crypt)
 
+# Source groups
 set(SOURCES
     main.cpp
     logindialog.cpp
@@ -26,10 +31,20 @@ set(SOURCES
     tecanwindow.cpp
     additemdialog.cpp
     qtbcrypt.cpp
+    PlateMapDialog.cpp
+    PlateWidget.cpp
+    Plate1536Dialog.cpp
+
+    # openwall crypt c sources
     openwall_crypt/crypt_blowfish.c
     openwall_crypt/crypt_gensalt.c
     openwall_crypt/wrapper.c
-    PlateMapDialog.cpp
+
+    # Newly listed sources you had inside the if() block before
+    loadexperimentdialog.cpp
+    gwlgenerator.cpp
+    standardselectiondialog.cpp
+    standardlibrary.cpp
 )
 
 set(HEADERS
@@ -51,7 +66,14 @@ set(HEADERS
     openwall_crypt/crypt_blowfish.h
     openwall_crypt/crypt_gensalt.h
     PlateMapDialog.h
+    PlateWidget.h
+    Plate1536Dialog.h
 
+    # Newly listed headers you had inside the if() block before
+    loadexperimentdialog.h
+    gwlgenerator.h
+    standardselectiondialog.h
+    standardlibrary.h
 )
 
 set(FORMS
@@ -61,55 +83,47 @@ set(FORMS
     tecanwindow.ui
     additemdialog.ui
     PlateMapDialog.ui
+
+    # Newly listed form you had inside the if() block before
+    loadexperimentdialog.ui
+    standardselectiondialog.ui
 )
 
 set(RESOURCES
-    resources.qrc  # clearly add this line
+    resources.qrc
 )
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+# Single master list for the target
+set(PROJECT_SOURCES
+    ${SOURCES}
+    ${HEADERS}
+    ${FORMS}
+    ${RESOURCES}
+)
 
+# Executable (Qt6 vs Qt5)
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(Invenesisapp
         MANUAL_FINALIZATION
-        ${SOURCES}
-        ${HEADERS}
-        ${FORMS}
-        ${RESOURCES}
-        loadexperimentdialog.h loadexperimentdialog.cpp loadexperimentdialog.ui
-        gwlgenerator.h gwlgenerator.cpp
-        standardselectiondialog.h standardselectiondialog.cpp standardselectiondialog.ui
-        standardlibrary.h standardlibrary.cpp
-        .gitignore
-        PlateWidget.h PlateWidget.cpp
-        Plate1536Dialog.h Plate1536Dialog.cpp
-)
-# Define target properties for Android with Qt 6 as:
-#    set_property(TARGET Invenesisapp APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
-#                 ${CMAKE_CURRENT_SOURCE_DIR}/android)
-# For more information, see https://doc.qt.io/qt-6/qt-add-executable.html#target-creation
+        ${PROJECT_SOURCES}
+        generategwldialog.h generategwldialog.cpp
+    )
 else()
-    if(ANDROID)
-        add_library(Invenesisapp SHARED
-            ${PROJECT_SOURCES}
-        )
-# Define properties for Android with Qt 5 after find_package() calls as:
-#    set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
-    else()
-        add_executable(Invenesisapp
-            ${PROJECT_SOURCES}
-        )
-    endif()
+    add_executable(Invenesisapp
+        ${PROJECT_SOURCES}
+    )
 endif()
 
-target_link_libraries(Invenesisapp PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Sql)
+target_link_libraries(Invenesisapp PRIVATE
+    Qt${QT_VERSION_MAJOR}::Widgets
+    Qt${QT_VERSION_MAJOR}::Sql
+)
 
-# Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
-# If you are developing for iOS or macOS you should consider setting an
-# explicit, fixed bundle identifier manually though.
+# Bundle / app settings
 if(${QT_VERSION} VERSION_LESS 6.1.0)
   set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.Invenesisapp)
 endif()
+
 set_target_properties(Invenesisapp PROPERTIES
     ${BUNDLE_ID_OPTION}
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
@@ -118,6 +132,7 @@ set_target_properties(Invenesisapp PROPERTIES
     WIN32_EXECUTABLE TRUE
 )
 
+# Install
 include(GNUInstallDirs)
 install(TARGETS Invenesisapp
     BUNDLE DESTINATION .
@@ -125,6 +140,7 @@ install(TARGETS Invenesisapp
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+# Qt6 needs finalize
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(Invenesisapp)
 endif()

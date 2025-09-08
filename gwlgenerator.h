@@ -1,118 +1,116 @@
-#ifndef GWLGENERATOR_H
-#define GWLGENERATOR_H
-
+#pragma once
+#include <QString>
 #include <QStringList>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QMap>
+#include <QVector>
+#include <memory>
 
 class GWLGenerator
 {
 public:
-    /**
-     * @param dilutionFactor    the numeric factor (e.g. 3.16)
-     * @param testId            the assay ID (e.g. "INV-T-005")
-     * @param stockConcMicroM   the stock concentration in µM (e.g. 10000.0 for 10 mM)
-     */
+    enum class Instrument { EVO150, FLUENT1080 };
+
+    struct Hit {
+        QString srcBarcode;
+        int     srcPos = 0;   // 1..96 (matrix tube index)
+        QString dstWell;      // e.g. "B3"
+        int     dstIdx = 0;   // 1..96 (Fluent position)
+    };
+
+    struct CompoundSrc {
+        QString barcode;
+        int     position = 0; // 1..96
+    };
+
+    struct FileOut {
+        QString     relativePath; // path under an output root (folders like dght_0/…)
+        QStringList lines;
+        bool        isAux = false;
+    };
+
+    struct VolumePlanEntry {
+        double volMother  = 0.0; // µL in each daughter well
+        double dmso       = 0.0; // µL DMSO in starting well
+        double volDght    = 0.0; // not used by Fluent generator here
+        double volFinal   = 0.0; // not used by Fluent generator here
+        double finalConc  = 0.0; // not used by Fluent generator here
+        double concMother = 0.0; // not used by Fluent generator here
+    };
+
+    GWLGenerator();
     GWLGenerator(double dilutionFactor,
                  const QString &testId,
-                 double         stockConcMicroM);
+                 double stockConcMicroM,
+                 Instrument instrument = Instrument::FLUENT1080);
+    ~GWLGenerator();
 
-    // Top-level API
-    QStringList generateTransferCommands(const QJsonObject &exp) const;
+    bool generate(const QJsonObject &root, QVector<FileOut> &outs, QString *err) const;
+    bool generateAuxiliary(const QJsonObject &root, QVector<FileOut> &outs, QString *err) const;
+
+    // Write all FileOuts under a chosen folder.
+    static bool saveMany(const QString &rootDir, const QVector<FileOut> &outs, QString *err);
+
+    // Shared helpers used by backends
+    QMap<QString, CompoundSrc> buildCompoundIndex(const QJsonArray &compounds) const;
+    QVector<Hit> collectHitsFromDaughterLayout(const QJsonObject &daughter,
+                                               const QMap<QString, CompoundSrc> &cmpIdx) const;
+    QMap<QString, QVector<Hit>> groupHitsByMatrix(const QVector<Hit> &hits) const;
+
+    bool loadVolumePlan(const QString &testId, double stockConcMicroM,
+                        VolumePlanEntry *out, QString *err) const;
+
+    static int  tubePosFromWell(const QString &well);   // "D12" -> 1..96 (matrix)
+    static int  wellToIndex96(const QString &well);     // "A1"  -> 1..96 (Fluent)
+    static bool isStandardLabel(const QString &s);
+    static bool isDMSOLabel(const QString &s);
 
 private:
-    // Immutable ctor inputs
-    const double      dilutionFactor_;
-    const QString     testId_;
-    const double      stockConcMicroM_;
-    const QJsonObject volumeMap_;       // loaded from volumeMap.json
-
-    struct Labware {
-        QString label;  // deck label / device name
-        QString rackID; // barcode (filled on the fly)
-        QString type;   // device type
-        int     site;   // deck site (unused in GWL but useful to carry)
+    class Backend {
+    protected:
+        explicit Backend(const GWLGenerator &outer) : outer_(outer) {}
+        const GWLGenerator &outer_;
+    public:
+        virtual ~Backend() = default;
+        virtual bool generate(const QJsonObject &root,
+                              QVector<FileOut> &outs,
+                              QString *err) const = 0;
+        virtual bool generateAux(const QJsonObject &root,
+                                 QVector<FileOut> &outs,
+                                 QString *err) const = 0;
     };
 
-    // === Fixed labware definitions (adjust to your deck) ===
-    const Labware stdMatrixLab_  = { "MPMatrixSTD",     "", "Matrix05Tube", 3 };
-    const Labware cmpMatrixLab_  = { "MPMatrix",        "", "Matrix05Tube", 1 };
-    const Labware daughterLab_   = { "MPDaughter",      "", "96daughterInv",1 };
-    const Labware troughPreAspi_ = { "TroughDMSOPreAspi","", "Trough 200ml",2 };
-    const Labware troughDilDMSO_ = { "TroughdilDMSO",   "", "Trough 200ml",3 };
-    const Labware lavageLab_     = { "Lavage",          "", "Trough 200ml",1 };
-
-    // === Planning helpers ===
-    QJsonObject loadVolumeMap() const;
-    QJsonArray  pickVolumeRules(const QString &testId,
-                               double         stockConcMicroM) const;
-
-    // Well helpers (96-well A1..H12)
-    int  wellToIndex(const QString &well) const;      // 1..96, 0 if invalid
-    bool isValidWell(const QString &well) const;
-
-    // GWL record helpers
-    QString recA(const Labware &lab, int pos,
-                 double vol, const QString &lc,
-                 const QString &tubeID = QString()) const;
-
-    QString recD(const Labware &lab, int pos,
-                 double vol, const QString &lc,
-                 const QString &tubeID = QString()) const;
-
-    QString recMultiAsp(const Labware &lab,
-                        int start, int end,
-                        double totalVol,
-                        const QString &lc) const;
-
-    QString recMultiDisp(const Labware &lab,
-                         int start, int end,
-                         double totalVol,
-                         const QString &lc) const;
-
-    QString recW(int scheme = 1) const;               // default in header only
-    QString recC(const QString &text) const;
-
-    // Block primitive for batched multi-channel transfers
-    struct DispenseBlock {
-        // 1) pre-asp (DMSO on all tips)
-        double  preAspVol      = 0.0;
-        QString preAspLC;
-
-        // 2) diluent (per tip)
-        Labware diluentLab;
-        double  diluentVolPer  = 0.0;
-        QString diluentLC;
-
-        // 3) mother (single pos, replicated across tips)
-        Labware motherLab;
-        int     motherPos      = 0;     // 1..96
-        double  motherVolPer   = 0.0;
-        QString motherLC;
-
-        // 4) multi-dispense to daughter
-        Labware targetLab;
-        int     tgtStart       = 0;     // start well index (1..96)
-        int     tgtEnd         = 0;     // end   well index (>= start)
-        double  mixVolPer      = 0.0;   // per tip (diluent + mother)
-        QString mixLC;
-
-        // 5) wash at end
-        int     washScheme     = 1;
+    class Evo150Backend : public Backend {
+    public:
+        explicit Evo150Backend(const GWLGenerator &outer) : Backend(outer) {}
+        bool generate(const QJsonObject &root, QVector<FileOut> &outs, QString *err) const override;
+        bool generateAux(const QJsonObject &root, QVector<FileOut> &outs, QString *err) const override;
+    private:
+        void emitStandardAndDmso(QStringList &lines,
+                                 const QJsonObject &root,
+                                 const QJsonObject &daughter) const;
+        void emitHitPicks(QStringList &lines,
+                          const QString &matrixBarcode,
+                          const QVector<Hit> &hits,
+                          const QJsonObject &root,
+                          const QJsonObject &daughter) const;
+        void emitSerialDilutions(QStringList &lines,
+                                 const QJsonObject &root,
+                                 const QJsonObject &daughter) const;
     };
 
-    void addDispenseBlock(const DispenseBlock &b, QStringList &cmds) const;
+    class FluentBackend : public Backend {
+    public:
+        explicit FluentBackend(const GWLGenerator &outer) : Backend(outer) {}
+        bool generate(const QJsonObject &root, QVector<FileOut> &outs, QString *err) const override;
+        bool generateAux(const QJsonObject &root, QVector<FileOut> &outs, QString *err) const override;
+    };
 
-    // Per-feature emitters
-    QStringList makeStandardHitPick(const QJsonObject &stdObj,
-                                    int plateNum) const;
-
-    QStringList makeCompoundHitPick(const QJsonObject &cmpObj,
-                                    int plateNum) const;
-
-    QStringList makeSerialDilution(const QJsonObject &plateObj,
-                                   const QJsonObject &cmpObj,
-                                   int plateNum) const;
+private:
+    double     dilutionFactor_ = 3.16;           // e.g. 3.16
+    QString    testId_;                           // e.g. "INV-T-005"
+    double     stockConc_ = 0.0;                  // µM
+    Instrument instrument_ = Instrument::FLUENT1080;
+    std::unique_ptr<Backend> backend_;
 };
-
-#endif // GWLGENERATOR_H

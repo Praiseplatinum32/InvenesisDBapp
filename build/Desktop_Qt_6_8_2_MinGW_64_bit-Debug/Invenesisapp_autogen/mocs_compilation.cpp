@@ -8,6 +8,7 @@
 #include "EWIEGA46WW/moc_databaseviewwindow.cpp"
 #include "EWIEGA46WW/moc_daughterplatewidget.cpp"
 #include "EWIEGA46WW/moc_draggabletableview.cpp"
+#include "EWIEGA46WW/moc_generategwldialog.cpp"
 #include "EWIEGA46WW/moc_loadexperimentdialog.cpp"
 #include "EWIEGA46WW/moc_logindialog.cpp"
 #include "EWIEGA46WW/moc_matrixplatecontainer.cpp"
