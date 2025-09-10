@@ -155,15 +155,15 @@ static QString buildRLine(const QString &srcLabel,
     return line;
 }
 
-// Append A;/D; pair
-static void appendAD(QStringList &out,
-                     const QString &srcLabel, const QString &srcWell,
-                     const QString &dstLabel, const QString &dstWell,
-                     double volUL, const QString &liqClass)
+// For Fluent: Generate A;/D; lines with numeric positions ONLY
+static void appendADFluent(QStringList &out,
+                           const QString &srcLabel, int srcPos,
+                           const QString &dstLabel, int dstPos,
+                           double volUL, const QString &liqClass)
 {
     const QString v = QString::number(volUL, 'f', 2);
-    out << QString("A;%1;;;%2;;%3;%4").arg(srcLabel, normWell(srcWell), v, liqClass);
-    out << QString("D;%1;;;%2;;%3;%4").arg(dstLabel, normWell(dstWell), v, liqClass);
+    out << QString("A;%1;;;%2;;%3;%4").arg(srcLabel).arg(srcPos).arg(v, liqClass);
+    out << QString("D;%1;;;%2;;%3;%4").arg(dstLabel).arg(dstPos).arg(v, liqClass);
 }
 
 // number_of_dilutions default 3
@@ -223,10 +223,7 @@ static int pickStepFromLayout(const QString &startWell,
     return (roomAcross >= roomDown) ? 8 : 1;
 }
 
-// ----- NEW: build standard chains strictly from the daughter layout -----
-// Chains start at any "Standard" well whose predecessor (step −8 or −1) is NOT Standard.
-// Step is inferred from the second well: if (start+8) is Standard => step=8;
-// else if (start+1) is Standard => step=1; otherwise a single-well chain.
+// Build standard chains from layout
 static QVector<QStringList> buildStandardChainsFromLayout(const QJsonObject &wellsObj)
 {
     // collect all "Standard" wells
@@ -315,6 +312,96 @@ static QStringList renderPlateMapCSV(const QList<DaughterPlateEntry> &rows) {
 
 } // namespace
 
+// ========================== Standards Matrix Loading ==========================
+
+bool GWLGenerator::loadStandardsMatrix(QVector<StandardSource>& standards, QString* err) const
+{
+    QFile f(":/standardjson/jsonfile/standards_matrix.json");
+    if (!f.open(QIODevice::ReadOnly)) {
+        if (err) *err = "Cannot open standards_matrix.json";
+        return false;
+    }
+
+    const auto doc = QJsonDocument::fromJson(f.readAll());
+    if (!doc.isArray()) {
+        if (err) *err = "standards_matrix.json is not an array";
+        return false;
+    }
+
+    const auto arr = doc.array();
+    for (const auto& val : arr) {
+        const auto obj = val.toObject();
+        StandardSource src;
+        src.barcode = obj.value("Containerbarcode").toString();
+        src.well = normWell(obj.value("Containerposition").toString());
+        src.sampleAlias = obj.value("Samplealias").toString();
+        src.solutionId = obj.value("invenesis_solution_ID").toString();
+
+        // Handle concentration - could be string or number
+        const auto concVal = obj.value("Concentration");
+        if (concVal.isString()) {
+            bool ok = false;
+            src.concentration = concVal.toString().toDouble(&ok);
+            if (!ok) src.concentration = 0.0;
+        } else {
+            src.concentration = concVal.toDouble();
+        }
+
+        src.concentrationUnit = obj.value("ConcentrationUnit").toString();
+
+        // Convert to µM if needed
+        if (src.concentrationUnit.compare("mM", Qt::CaseInsensitive) == 0) {
+            src.concentration *= 1000.0;
+            src.concentrationUnit = "uM";
+        } else if (src.concentrationUnit.compare("ppm", Qt::CaseInsensitive) == 0) {
+            // Skip ppm entries for now or convert if molecular weight is known
+            continue;
+        }
+
+        standards.push_back(src);
+    }
+
+    return true;
+}
+
+GWLGenerator::StandardSource GWLGenerator::selectBestStandard(
+    const QString& standardName,
+    double targetConc,
+    const QVector<StandardSource>& available) const
+{
+    StandardSource best;
+    double bestScore = 1e300;
+
+    for (const auto& src : available) {
+        // Match by name (case insensitive)
+        if (src.sampleAlias.compare(standardName, Qt::CaseInsensitive) != 0)
+            continue;
+
+        // Skip if no valid concentration
+        if (src.concentration <= 0.0)
+            continue;
+
+        // Prefer concentrations that are higher than target (for dilution)
+        // but not excessively high
+        double score = 0.0;
+        if (src.concentration >= targetConc) {
+            // Slightly prefer higher concentrations for dilution
+            score = src.concentration / targetConc;
+            if (score > 100.0) score = 100.0 + (score - 100.0) * 0.1; // Penalize very high ratios
+        } else {
+            // Can still use lower concentrations but with penalty
+            score = 1000.0 + (targetConc / src.concentration);
+        }
+
+        if (score < bestScore) {
+            bestScore = score;
+            best = src;
+        }
+    }
+
+    return best;
+}
+
 // ========================== Fluent backend ================================
 
 bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
@@ -332,26 +419,98 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
         return false;
     }
 
+    // Load standards matrix
+    QVector<StandardSource> availableStandards;
+    QString stdErr;
+    if (!outer_.loadStandardsMatrix(availableStandards, &stdErr)) {
+        qWarning() << "[WARN] Failed to load standards matrix:" << stdErr;
+    }
+
+    // Get standard info from experiment
     const QJsonObject stdObj = exp.value("standard").toObject();
-    const QString stdBarcode = stdObj.value("Containerbarcode").toString();
-    const QString stdSrcWell = normWell(stdObj.value("Containerposition").toString());
-    const QString stdName    = stdObj.value("Samplealias").toString();
+    QString stdName = stdObj.value("Samplealias").toString();
+
+    // If standard is specified in experiment but not with full details,
+    // try to find it in standards_matrix
+    StandardSource selectedStandard;
+    bool useMatrixStandard = false;
+
+    if (!stdName.isEmpty() && !availableStandards.isEmpty()) {
+        // Determine target concentration for standard
+        double targetStdConc = 20000.0; // Default high concentration in µM
+
+        // Check if we have a specific concentration requirement
+        const QJsonArray testRequests = exp.value("test_requests").toArray();
+        if (!testRequests.isEmpty()) {
+            const auto tr0 = testRequests.at(0).toObject();
+            double startConc = readDouble(tr0, "starting_concentration", 100.0);
+            const QString startUnit = tr0.value("starting_concentration_unit").toString();
+            if (startUnit.compare("mM", Qt::CaseInsensitive) == 0) {
+                startConc *= 1000.0;
+            }
+            // For standards, we might want higher concentration than compound start
+            targetStdConc = startConc * 10.0; // 10x higher than compound start
+        }
+
+        selectedStandard = outer_.selectBestStandard(stdName, targetStdConc, availableStandards);
+        if (!selectedStandard.barcode.isEmpty()) {
+            useMatrixStandard = true;
+            qDebug() << "[INFO] Selected standard:" << selectedStandard.sampleAlias
+                     << "at" << selectedStandard.concentration << "µM"
+                     << "from" << selectedStandard.barcode << selectedStandard.well;
+        }
+    }
+
+    // Fallback to experiment-provided standard if no matrix match
+    QString stdBarcode = useMatrixStandard ? selectedStandard.barcode
+                                           : stdObj.value("Containerbarcode").toString();
+    QString stdSrcWell = useMatrixStandard ? selectedStandard.well
+                                           : normWell(stdObj.value("Containerposition").toString());
+    double stdConc = useMatrixStandard ? selectedStandard.concentration
+                                       : readDouble(stdObj, "Concentration", 20000.0);
+
+    // Convert standard source well to numeric position
+    const int stdSrcPos = wellNameToIndex96(stdSrcWell);
+
+    // Ensure standard matrix has proper label
+    const QString standardMatrixLabel = "Standard_Matrix";
 
     const double df          = (outer_.dilutionFactor_ > 0.0) ? outer_.dilutionFactor_ : 3.16;
     const QString testId     = outer_.testId_;
     const double stockMicroM = outer_.stockConc_;
 
-    // volume plan
-    VolumePlanEntry vpe; QString verr;
+    // Load volume plan for compounds
+    VolumePlanEntry vpe;
+    QString verr;
     if (!outer_.loadVolumePlan(testId, stockMicroM, &vpe, &verr)) {
         qWarning() << "[WARN][FluentBackend] volume plan:" << verr;
+        // Use defaults
+        vpe.volMother = 30.0;
+        vpe.dmso = 0.0;
     }
-    const double volMother   = vpe.volMother;                     // target µL in daughter wells
-    const double dmsoStart   = vpe.dmso;                          // µL DMSO in start well
-    const double transferVol = (df > 0.0 ? volMother / df : 0.0); // µL per hop
+
+    // For standards, check if there's a specific volume plan
+    VolumePlanEntry stdVpe = vpe; // Start with compound volumes
+    if (useMatrixStandard && !testId.isEmpty()) {
+        VolumePlanEntry tempVpe;
+        if (outer_.loadVolumePlan(testId, stdConc, &tempVpe, &verr)) {
+            stdVpe = tempVpe;
+            qDebug() << "[INFO] Using specific volume plan for standard at" << stdConc << "µM";
+        }
+    }
+
+    const double volMother   = vpe.volMother;
+    const double dmsoStart   = vpe.dmso;
+    const double transferVol = (df > 0.0 ? volMother / df : 0.0);
     const double dmsoDilute  = (transferVol > 0.0 ? volMother - transferVol : 0.0);
 
-    // product_name -> (barcode, well)
+    // Standard-specific volumes
+    const double stdVolMother   = stdVpe.volMother;
+    const double stdDmsoStart   = stdVpe.dmso;
+    const double stdTransferVol = (df > 0.0 ? stdVolMother / df : 0.0);
+    const double stdDmsoDilute  = (stdTransferVol > 0.0 ? stdVolMother - stdTransferVol : 0.0);
+
+    // Build compound index
     struct SrcLoc { QString barcode; QString well; };
     QMap<QString, SrcLoc> cmpIndex;
     for (const auto &v : exp.value("compounds").toArray()) {
@@ -364,7 +523,7 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
         }
     }
 
-    // matrix plate maps (CSV)
+    // Matrix plate maps generation helper
     auto produceMatrixPlateMaps = [&](QVector<FileOut> &outVec) {
         QMap<QString, QList<DaughterPlateEntry>> rowsByBarcode;
         const QString projectCode = exp.value("project_code").toString();
@@ -396,7 +555,7 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
         }
     };
 
-    // Daughter plate map CSV
+    // Daughter plate map CSV generation helper
     auto produceDaughterPlateMap = [&](int di,
                                        const QJsonObject &plate,
                                        const QList<QPair<QString, QString>> &placedStart,
@@ -451,11 +610,11 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
                 r.containerBarcode = dghtBarcode;
                 r.sampleAlias      = (i==0 ? stdName : QString("%1_dil").arg(stdName));
                 r.wellA01          = toA01(chain.at(i));
-                r.volumeUL         = volMother;
+                r.volumeUL         = stdVolMother;
                 r.volumeUnit       = "ul";
                 r.conc             = 0.0; r.concUnit = "uM";
                 r.u1 = QString("%1_%2").arg(r.containerBarcode, r.wellA01);
-                r.u2 = stdObj.value("invenesis_solution_ID").toString();
+                r.u2 = useMatrixStandard ? selectedStandard.solutionId : stdObj.value("invenesis_solution_ID").toString();
                 r.u3 = "0";
                 r.u4 = QString::number(readDouble(exp.value("test_requests").toArray().at(0).toObject(), "dilution_steps", 0.0));
                 r.u5 = projectCode;
@@ -534,41 +693,43 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
         return fcsv;
     };
 
-    // ---- per daughter plate ----
+    // ---- Process each daughter plate ----
     for (int di = 0; di < plates.size(); ++di) {
         const QJsonObject plate  = plates.at(di).toObject();
         const QJsonObject wells  = plate.value("wells").toObject();
         const QString dghtLabel  = QString("Daughter[%1]").arg(QString("%1").arg(di+1, 3, 10, QChar('0')));
         const int nDil = std::max(1, numberOfDilutionsFromJson(exp));
 
-        // Hits: compounds from layout
+        // Collect hits (compounds)
         struct Hit { QString product; QString dstWell; QString srcBarcode; QString srcWell; };
         QVector<Hit> hits;
         for (auto it = wells.begin(); it != wells.end(); ++it) {
             const QString dstWell = normWell(it.key());
             const QString who = it.value().toString().trimmed();
-            if (who.isEmpty() || who.compare("DMSO", Qt::CaseInsensitive)==0 || who.compare("Standard", Qt::CaseInsensitive)==0)
+            if (who.isEmpty() || who.compare("DMSO", Qt::CaseInsensitive)==0 ||
+                who.compare("Standard", Qt::CaseInsensitive)==0)
                 continue;
             if (!cmpIndex.contains(who)) continue;
             const auto src = cmpIndex.value(who);
             hits.push_back(Hit{who, dstWell, src.barcode, src.well});
         }
-        // group hits by matrix barcode
+
+        // Group hits by matrix barcode
         QMap<QString, QVector<Hit>> byMatrix;
         for (const auto &h : hits) byMatrix[h.srcBarcode].push_back(h);
 
-        // Standard chains (now layout-driven, no cap by number_of_dilutions)
+        // Build standard chains from layout
         const auto stdChains = buildStandardChainsFromLayout(wells);
 
-        // sets for reagent distribution (excluding standard wells later)
+        // Build well sets for reagent distribution
         QSet<QString> startWells, diluteWells, controlDmsoWells;
-        QMap<QString,int> perHitStep; // start well -> step
+        QMap<QString,int> perHitStep;
 
         for (const auto &h : hits) {
             startWells.insert(h.dstWell);
             const int step = pickStepFromLayout(h.dstWell, nDil, wells);
             perHitStep[h.dstWell] = step;
-            // build dilution chain
+
             int cur = wellNameToIndex96(h.dstWell);
             for (int s=1; s<nDil; ++s) {
                 int nxt = cur + step;
@@ -577,62 +738,95 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
                 cur = nxt;
             }
         }
+
         for (auto it = wells.begin(); it != wells.end(); ++it)
             if (it.value().toString().trimmed().compare("DMSO", Qt::CaseInsensitive)==0)
                 controlDmsoWells.insert(normWell(it.key()));
 
         // ---- 1) standard.gwl ----
-        if (!stdChains.isEmpty() && !stdBarcode.isEmpty() && !stdSrcWell.isEmpty()) {
+        if (!stdChains.isEmpty() && !stdBarcode.isEmpty() && stdSrcPos >= 1) {
             FileOut fo;
             fo.relativePath = QString("dght_%1/standard.gwl").arg(di);
             QStringList L;
-            L << QString("C;Standard %1 (%2) DMSO start (A/D), DMSO dil (R;), pick, serial dil")
-                     .arg(stdName, stdBarcode);
+
+            // Add header with standard info
+            L << QString("C;Standard %1 (%2) from %3 position %4 at %5 µM")
+                     .arg(stdName)
+                     .arg(useMatrixStandard ? selectedStandard.solutionId : stdObj.value("invenesis_solution_ID").toString())
+                     .arg(stdBarcode)
+                     .arg(stdSrcPos)
+                     .arg(QString::number(stdConc, 'f', 1));
+
+            L << QString("C;Volume plan: Mother=%1µL, DMSO start=%2µL, Transfer=%3µL, DMSO dilute=%4µL")
+                     .arg(QString::number(stdVolMother, 'f', 2))
+                     .arg(QString::number(stdDmsoStart, 'f', 2))
+                     .arg(QString::number(stdTransferVol, 'f', 2))
+                     .arg(QString::number(stdDmsoDilute, 'f', 2));
 
             for (const auto &chain : stdChains) {
                 if (chain.isEmpty()) continue;
-                const QString start = chain.first();
+                const int startPos = wellNameToIndex96(chain.first());
 
-                // 1) A/D DMSO to starting well (S;7)
-                if (dmsoStart > 1e-6) {
+                // 1) A/D DMSO to starting well if needed
+                if (stdDmsoStart > 1e-6) {
                     L << "B;";
                     L << "S;7";
-                    appendAD(L, "DMSO_25ml", "A1", dghtLabel, start,
-                             dmsoStart, "DMSO Contact Dry Multi Invenesis");
+                    appendADFluent(L, "DMSO_25ml", 1, dghtLabel, startPos,
+                                   stdDmsoStart, "DMSO Contact Dry Multi Invenesis");
                     L << "F;";
                     L << "W;";
                     L << "B;";
                 }
 
-                // 2) R; DMSO to dilution wells only (S;19) — chain minus first
-                if (chain.size() > 1 && dmsoDilute > 1e-6) {
-                    QSet<QString> dilNames;
-                    for (int i=1;i<chain.size();++i) dilNames.insert(chain.at(i));
-                    L << "S;19";
-                    L << buildRLine("100ml_Higher", dghtLabel, namesToIndices(dilNames),
-                                    dmsoDilute, "DMSO Contact Dry Multi Invenesis");
-                    L << "F;";
-                    L << "W;";
-                    L << "B;";
-                }
+                // 2) Individual A/D DMSO to dilution wells (NO R; command)
+                if (chain.size() > 1 && stdDmsoDilute > 1e-6) {
+                    // Collect all dilution positions
+                    QList<int> dilPositions;
+                    for (int i = 1; i < chain.size(); ++i) {
+                        const int dilPos = wellNameToIndex96(chain.at(i));
+                        if (dilPos >= 1) dilPositions.append(dilPos);
+                    }
 
-                // 3) A/D pick standard to start (S;7)
-                const double volStartCompound = std::max(0.0, volMother - dmsoStart);
-                if (volStartCompound > 1e-6) {
-                    L << "S;7";
-                    appendAD(L, "Standard_Matrix", stdSrcWell, dghtLabel, start,
-                             volStartCompound, "DMSO Matrix");
-                }
+                    if (!dilPositions.isEmpty()) {
+                        // Calculate total volume needed
+                        const double totalVolume = stdDmsoDilute * dilPositions.size();
 
-                // 4) A/D serial dilution along the full chain (layout-driven)
-                if (transferVol > 1e-6 && chain.size() > 1) {
-                    for (int i=0; i+1<chain.size(); ++i) {
-                        appendAD(L, dghtLabel, chain.at(i), dghtLabel, chain.at(i+1),
-                                 transferVol, "DMSO Contact Wet Single Invenesis");
+                        L << "S;19";
+                        // Single aspirate of total volume
+                        L << QString("A;100ml_Higher;;;1;;%1;DMSO Contact Dry Multi Invenesis")
+                                 .arg(QString::number(totalVolume, 'f', 2));
+
+                        // Multiple dispenses
+                        for (int dilPos : dilPositions) {
+                            L << QString("D;%1;;;%2;;%3;DMSO Contact Dry Multi Invenesis")
+                            .arg(dghtLabel)
+                                .arg(dilPos)
+                                .arg(QString::number(stdDmsoDilute, 'f', 2));
+                        }
+                        L << "F;";
+                        L << "W;";
+                        L << "B;";
                     }
                 }
 
-                // close A/D block
+                // 3) Pick standard to start well
+                const double volStartStandard = std::max(0.0, stdVolMother - stdDmsoStart);
+                if (volStartStandard > 1e-6) {
+                    L << "S;7";
+                    appendADFluent(L, standardMatrixLabel, stdSrcPos, dghtLabel, startPos,
+                                   volStartStandard, "DMSO Matrix");
+                }
+
+                // 4) Serial dilution - using numeric positions
+                if (stdTransferVol > 1e-6 && chain.size() > 1) {
+                    for (int i=0; i+1<chain.size(); ++i) {
+                        const int srcPos = wellNameToIndex96(chain.at(i));
+                        const int dstPos = wellNameToIndex96(chain.at(i+1));
+                        appendADFluent(L, dghtLabel, srcPos, dghtLabel, dstPos,
+                                       stdTransferVol, "DMSO Contact Wet Single Invenesis");
+                    }
+                }
+
                 L << "F;";
                 L << "W;";
                 L << "B;";
@@ -642,47 +836,103 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
             outs.push_back(std::move(fo));
         }
 
-        // ---- 2) Reagent_distrib.gwl (exclude all standard wells) ----
+        // ---- 2) Reagent_distrib.gwl ----
         {
-            // remove *all* std wells (starts+dilutions) from reagent distribution
+            // Exclude standard wells from reagent distribution
             QSet<QString> allStd;
             for (const auto &chain : stdChains)
                 for (const auto &w : chain) allStd.insert(w);
-            for (const auto &w : allStd) { startWells.remove(w); diluteWells.remove(w); }
-
-            const QSet<int> startIdx = namesToIndices(startWells);
-
-            QSet<QString> dilAndCtrl = diluteWells;
-            for (const auto &w : controlDmsoWells) dilAndCtrl.insert(w);
-            const QSet<int> dilAndCtrlIdx = namesToIndices(dilAndCtrl);
+            for (const auto &w : allStd) {
+                startWells.remove(w);
+                diluteWells.remove(w);
+            }
 
             FileOut fo;
             fo.relativePath = QString("dght_%1/Reagent_distrib.gwl").arg(di);
 
             QStringList L;
-            L << "C;Reagent distribution (DMSO) for starts, dilutions, control DMSO";
+            L << "C;Reagent distribution (DMSO) for compound starts, dilutions, and control DMSO wells";
             L << "B;";
             L << "S;19";
 
-            if (!startIdx.isEmpty() && dmsoStart > 1e-6) {
-                L << buildRLine("100ml_Higher", dghtLabel, startIdx,
-                                dmsoStart, "DMSO Contact Dry Multi Invenesis");
-                L << "F;";
-            }
-            if (!dilAndCtrlIdx.isEmpty()) {
-                const double volForThis = (dmsoDilute > 1e-6 ? dmsoDilute : volMother);
-                L << buildRLine("100ml_Higher", dghtLabel, dilAndCtrlIdx,
-                                volForThis, "DMSO Contact Dry Multi Invenesis");
-                L << "F;";
+            // Group wells by volume for optimized multi-dispense with excess volume
+
+            // 1) DMSO to compound start wells - single aspirate with excess, multiple dispense
+            if (!startWells.isEmpty() && dmsoStart > 1e-6) {
+                const double totalNeeded = dmsoStart * startWells.size();
+                const double excessVolume = std::max(30.0, totalNeeded * 0.15); // 15% excess, minimum 30 µL
+                const double totalStartVol = totalNeeded + excessVolume;
+
+                // Single aspirate with excess
+                L << QString("A;100ml_Higher;;;1;;%1;DMSO Contact Dry Multi Invenesis")
+                         .arg(QString::number(totalStartVol, 'f', 2));
+
+                // Multiple dispenses
+                for (const QString &startWell : startWells) {
+                    const int pos = wellNameToIndex96(startWell);
+                    if (pos >= 1) {
+                        L << QString("D;%1;;;%2;;%3;DMSO Contact Dry Multi Invenesis")
+                        .arg(dghtLabel)
+                            .arg(pos)
+                            .arg(QString::number(dmsoStart, 'f', 2));
+                    }
+                }
             }
 
+            // 2) DMSO to dilution wells - single aspirate with excess, multiple dispense
+            const double volForDilution = (dmsoDilute > 1e-6 ? dmsoDilute : volMother);
+
+            if (!diluteWells.isEmpty() && volForDilution > 1e-6) {
+                const double totalNeeded = volForDilution * diluteWells.size();
+                const double excessVolume = std::max(30.0, totalNeeded * 0.15); // 15% excess, minimum 30 µL
+                const double totalDilVol = totalNeeded + excessVolume;
+
+                // Single aspirate with excess
+                L << QString("A;100ml_Higher;;;1;;%1;DMSO Contact Dry Multi Invenesis")
+                         .arg(QString::number(totalDilVol, 'f', 2));
+
+                // Multiple dispenses
+                for (const QString &dilWell : diluteWells) {
+                    const int pos = wellNameToIndex96(dilWell);
+                    if (pos >= 1) {
+                        L << QString("D;%1;;;%2;;%3;DMSO Contact Dry Multi Invenesis")
+                        .arg(dghtLabel)
+                            .arg(pos)
+                            .arg(QString::number(volForDilution, 'f', 2));
+                    }
+                }
+            }
+
+            // 3) DMSO to control wells - single aspirate with excess, multiple dispense
+            if (!controlDmsoWells.isEmpty() && volMother > 1e-6) {
+                const double totalNeeded = volMother * controlDmsoWells.size();
+                const double excessVolume = std::max(30.0, totalNeeded * 0.15); // 15% excess, minimum 30 µL
+                const double totalControlVol = totalNeeded + excessVolume;
+
+                // Single aspirate with excess
+                L << QString("A;100ml_Higher;;;1;;%1;DMSO Contact Dry Multi Invenesis")
+                         .arg(QString::number(totalControlVol, 'f', 2));
+
+                // Multiple dispenses
+                for (const QString &dmsoWell : controlDmsoWells) {
+                    const int pos = wellNameToIndex96(dmsoWell);
+                    if (pos >= 1) {
+                        L << QString("D;%1;;;%2;;%3;DMSO Contact Dry Multi Invenesis")
+                        .arg(dghtLabel)
+                            .arg(pos)
+                            .arg(QString::number(volMother, 'f', 2));
+                    }
+                }
+            }
+
+            L << "F;";
             L << "W;";
             L << "B;";
             fo.lines = L;
             outs.push_back(std::move(fo));
         }
 
-        // ---- 3) per-matrix: place compounds ----
+        // ---- 3) Matrix compound placement files ----
         {
             int mIdx = 0;
             for (auto it = byMatrix.cbegin(); it != byMatrix.cend(); ++it, ++mIdx) {
@@ -702,8 +952,11 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
                 const double volCompound = std::max(0.0, volMother - dmsoStart);
                 if (volCompound > 1e-6) {
                     for (const auto &h : mhits) {
-                        appendAD(L, matrixLabel, h.srcWell, dghtLabel, h.dstWell,
-                                 volCompound, "DMSO Matrix");
+                        // Convert wells to numeric positions
+                        const int srcPos = wellNameToIndex96(h.srcWell);
+                        const int dstPos = wellNameToIndex96(h.dstWell);
+                        appendADFluent(L, matrixLabel, srcPos, dghtLabel, dstPos,
+                                       volCompound, "DMSO Matrix");
                     }
                     L << "F;";
                 }
@@ -714,13 +967,13 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
             }
         }
 
-        // ---- 4) serial_dilution.gwl for compounds ----
+        // ---- 4) serial_dilution.gwl ----
         {
             FileOut fo;
             fo.relativePath = QString("dght_%1/serial_dilution.gwl").arg(di);
 
             QStringList L;
-            L << "C;Serial dilutions on daughter for all compounds";
+            L << "C;Serial dilutions for all compounds";
             L << "B;";
             L << "S;7";
 
@@ -734,9 +987,9 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
                     for (int s=1; s<nDil; ++s) {
                         int nxt = cur + step;
                         if (nxt < 1 || nxt > 96) break;
-                        appendAD(L, dghtLabel, indexToWellName96(cur),
-                                 dghtLabel, indexToWellName96(nxt),
-                                 transferVol, "DMSO Contact Wet Single Invenesis");
+                        // Use numeric positions directly
+                        appendADFluent(L, dghtLabel, cur, dghtLabel, nxt,
+                                       transferVol, "DMSO Contact Wet Single Invenesis");
                         cur = nxt;
                     }
                 }
@@ -748,7 +1001,7 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
             outs.push_back(std::move(fo));
         }
 
-        // ---- Plate maps ----
+        // Generate plate maps
         if (di == 0) {
             produceMatrixPlateMaps(outs);
         }

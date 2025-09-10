@@ -1,116 +1,142 @@
-#pragma once
+#ifndef GWLGENERATOR_H
+#define GWLGENERATOR_H
+
+#include <memory>
 #include <QString>
-#include <QStringList>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <QMap>
 #include <QVector>
-#include <memory>
+#include <QMap>
 
 class GWLGenerator
 {
 public:
-    enum class Instrument { EVO150, FLUENT1080 };
+    enum class Instrument {
+        EVO150,
+        FLUENT1080
+    };
 
-    struct Hit {
-        QString srcBarcode;
-        int     srcPos = 0;   // 1..96 (matrix tube index)
-        QString dstWell;      // e.g. "B3"
-        int     dstIdx = 0;   // 1..96 (Fluent position)
+    struct FileOut {
+        QString relativePath;
+        QStringList lines;
+        bool isAux = false;
+    };
+
+    struct VolumePlanEntry {
+        double volMother = 0.0;
+        double dmso = 0.0;
+        double volDght = 0.0;
+        double volFinal = 0.0;
+        double finalConc = 0.0;
+        double concMother = 0.0;
     };
 
     struct CompoundSrc {
         QString barcode;
-        int     position = 0; // 1..96
+        int position = 0;
     };
 
-    struct FileOut {
-        QString     relativePath; // path under an output root (folders like dght_0/…)
-        QStringList lines;
-        bool        isAux = false;
+    struct Hit {
+        QString dstWell;
+        int dstIdx = 0;
+        QString srcBarcode;
+        int srcPos = 0;
     };
 
-    struct VolumePlanEntry {
-        double volMother  = 0.0; // µL in each daughter well
-        double dmso       = 0.0; // µL DMSO in starting well
-        double volDght    = 0.0; // not used by Fluent generator here
-        double volFinal   = 0.0; // not used by Fluent generator here
-        double finalConc  = 0.0; // not used by Fluent generator here
-        double concMother = 0.0; // not used by Fluent generator here
+    struct StandardSource {
+        QString barcode;
+        QString well;
+        double concentration = 0.0;
+        QString concentrationUnit;
+        QString sampleAlias;
+        QString solutionId;
     };
 
     GWLGenerator();
     GWLGenerator(double dilutionFactor,
                  const QString &testId,
                  double stockConcMicroM,
-                 Instrument instrument = Instrument::FLUENT1080);
+                 Instrument instrument = Instrument::EVO150);
     ~GWLGenerator();
 
-    bool generate(const QJsonObject &root, QVector<FileOut> &outs, QString *err) const;
-    bool generateAuxiliary(const QJsonObject &root, QVector<FileOut> &outs, QString *err) const;
+    bool generate(const QJsonObject &experimentJson,
+                  QVector<FileOut> &outputs,
+                  QString *errorMsg = nullptr) const;
 
-    // Write all FileOuts under a chosen folder.
-    static bool saveMany(const QString &rootDir, const QVector<FileOut> &outs, QString *err);
+    bool generateAuxiliary(const QJsonObject &experimentJson,
+                           QVector<FileOut> &outputs,
+                           QString *errorMsg = nullptr) const;
 
-    // Shared helpers used by backends
+    static bool saveMany(const QString &rootDir,
+                         const QVector<FileOut> &outputs,
+                         QString *errorMsg = nullptr);
+
+    // Helper methods
+    bool loadVolumePlan(const QString &testId,
+                        double stockConc,
+                        VolumePlanEntry *out,
+                        QString *err = nullptr) const;
+
+    bool loadStandardsMatrix(QVector<StandardSource>& standards,
+                             QString* err = nullptr) const;
+
+    StandardSource selectBestStandard(const QString& standardName,
+                                      double targetConc,
+                                      const QVector<StandardSource>& available) const;
+
+protected:
     QMap<QString, CompoundSrc> buildCompoundIndex(const QJsonArray &compounds) const;
     QVector<Hit> collectHitsFromDaughterLayout(const QJsonObject &daughter,
                                                const QMap<QString, CompoundSrc> &cmpIdx) const;
     QMap<QString, QVector<Hit>> groupHitsByMatrix(const QVector<Hit> &hits) const;
 
-    bool loadVolumePlan(const QString &testId, double stockConcMicroM,
-                        VolumePlanEntry *out, QString *err) const;
-
-    static int  tubePosFromWell(const QString &well);   // "D12" -> 1..96 (matrix)
-    static int  wellToIndex96(const QString &well);     // "A1"  -> 1..96 (Fluent)
+    static int tubePosFromWell(const QString &well);
+    static int wellToIndex96(const QString &well);
     static bool isStandardLabel(const QString &s);
     static bool isDMSOLabel(const QString &s);
 
 private:
     class Backend {
-    protected:
-        explicit Backend(const GWLGenerator &outer) : outer_(outer) {}
-        const GWLGenerator &outer_;
     public:
+        Backend(const GWLGenerator &outer) : outer_(outer) {}
         virtual ~Backend() = default;
-        virtual bool generate(const QJsonObject &root,
+        virtual bool generate(const QJsonObject &exp,
                               QVector<FileOut> &outs,
                               QString *err) const = 0;
-        virtual bool generateAux(const QJsonObject &root,
+        virtual bool generateAux(const QJsonObject &exp,
                                  QVector<FileOut> &outs,
                                  QString *err) const = 0;
+    protected:
+        const GWLGenerator &outer_;
     };
 
     class Evo150Backend : public Backend {
     public:
-        explicit Evo150Backend(const GWLGenerator &outer) : Backend(outer) {}
-        bool generate(const QJsonObject &root, QVector<FileOut> &outs, QString *err) const override;
-        bool generateAux(const QJsonObject &root, QVector<FileOut> &outs, QString *err) const override;
-    private:
-        void emitStandardAndDmso(QStringList &lines,
-                                 const QJsonObject &root,
-                                 const QJsonObject &daughter) const;
-        void emitHitPicks(QStringList &lines,
-                          const QString &matrixBarcode,
-                          const QVector<Hit> &hits,
-                          const QJsonObject &root,
-                          const QJsonObject &daughter) const;
-        void emitSerialDilutions(QStringList &lines,
-                                 const QJsonObject &root,
-                                 const QJsonObject &daughter) const;
+        using Backend::Backend;
+        bool generate(const QJsonObject &exp,
+                      QVector<FileOut> &outs,
+                      QString *err) const override;
+        bool generateAux(const QJsonObject &exp,
+                         QVector<FileOut> &outs,
+                         QString *err) const override;
     };
 
     class FluentBackend : public Backend {
     public:
-        explicit FluentBackend(const GWLGenerator &outer) : Backend(outer) {}
-        bool generate(const QJsonObject &root, QVector<FileOut> &outs, QString *err) const override;
-        bool generateAux(const QJsonObject &root, QVector<FileOut> &outs, QString *err) const override;
+        using Backend::Backend;
+        bool generate(const QJsonObject &exp,
+                      QVector<FileOut> &outs,
+                      QString *err) const override;
+        bool generateAux(const QJsonObject &exp,
+                         QVector<FileOut> &outs,
+                         QString *err) const override;
     };
 
-private:
-    double     dilutionFactor_ = 3.16;           // e.g. 3.16
-    QString    testId_;                           // e.g. "INV-T-005"
-    double     stockConc_ = 0.0;                  // µM
-    Instrument instrument_ = Instrument::FLUENT1080;
+    double dilutionFactor_ = 3.16;
+    QString testId_;
+    double stockConc_ = 0.0;
+    Instrument instrument_ = Instrument::EVO150;
     std::unique_ptr<Backend> backend_;
 };
+
+#endif // GWLGENERATOR_H
