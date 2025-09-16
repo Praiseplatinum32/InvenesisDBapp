@@ -1,22 +1,22 @@
 <RCC>
-    <qresource prefix="/icon">
-        <file>icon/visible.png</file>
-        <file>icon/cacher.png</file>
-        <file>icon/Sphere.png</file>
-        <file>icon/table.png</file>
-        <file>icon/ajouter.png</file>
-        <file>icon/rafraichir.png</file>
-        <file>icon/chercher.png</file>
-        <file>icon/effacer.png</file>
-        <file>icon/telecharger.png</file>
-        <file>icon/tecan.png</file>
-        <file>icon/dossier.png</file>
-        <file>icon/sauvegarder.png</file>
-        <file>icon/telechargement-de-fichiers.png</file>
-        <file>icon/platemap.png</file>
+    <qresource prefix="/icons">
+        <file>resources/icons/visible.png</file>
+        <file>resources/icons/cacher.png</file>
+        <file>resources/icons/Sphere.png</file>
+        <file>resources/icons/table.png</file>
+        <file>resources/icons/ajouter.png</file>
+        <file>resources/icons/rafraichir.png</file>
+        <file>resources/icons/chercher.png</file>
+        <file>resources/icons/effacer.png</file>
+        <file>resources/icons/telecharger.png</file>
+        <file>resources/icons/tecan.png</file>
+        <file>resources/icons/dossier.png</file>
+        <file>resources/icons/sauvegarder.png</file>
+        <file>resources/icons/telechargement-de-fichiers.png</file>
+        <file>resources/icons/platemap.png</file>
     </qresource>
-    <qresource prefix="/standardjson">
-        <file>jsonfile/standards_matrix.json</file>
-        <file>jsonfile/volumeMap.json</file>
+    <qresource prefix="/data">
+        <file>resources/data/standards_matrix.json</file>
+        <file>resources/data/volumeMap.json</file>
     </qresource>
 </RCC>
