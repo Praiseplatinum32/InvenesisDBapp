@@ -945,8 +945,9 @@ void TecanWindow::generateGWLFromJson(const QJsonObject &experimentJson)
     }
 
     // 7) Choose an output folder (robot expects `dght_0/…`, `dght_1/…` inside)
+    const QString defaultDir = QStringLiteral("//Inv_syno_srv/INVENesis/Evo_pc/Fluent/Experiments");
     const QString outDir = QFileDialog::getExistingDirectory(
-        this, tr("Select Output Folder"), QString(),
+        this, tr("Select Output Folder"), defaultDir,
         QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
     if (outDir.isEmpty()) return; // user cancelled
 

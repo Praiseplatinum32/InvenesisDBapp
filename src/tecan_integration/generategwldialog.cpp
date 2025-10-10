@@ -15,7 +15,7 @@ GenerateGwlDialog::GenerateGwlDialog(QWidget *parent)
     layout->addWidget(lbl);
 
     fluentCheck_ = new QCheckBox("Use Tecan Fluent 1080 (disposable tips)", this);
-    fluentCheck_->setChecked(false); // default EVO150
+    fluentCheck_->setChecked(true); // default Fluent
     layout->addWidget(fluentCheck_);
 
     auto *btns = new QHBoxLayout();
