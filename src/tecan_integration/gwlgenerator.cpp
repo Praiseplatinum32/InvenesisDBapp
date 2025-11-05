@@ -293,6 +293,58 @@ static QStringList renderPlateMapCSV(const QList<DaughterPlateEntry> &rows) {
     return L;
 }
 
+// ---------------------- Audit CSV rows & renderers ------------------------
+
+struct SeedAuditRow {
+    QString daughterBarcode;   // "Daughter_1"
+    QString analyte;           // compound name or standard name
+    QString matrixBarcode;     // matrix barcode (or standard matrix barcode)
+    QString matrixWell;        // e.g. "E12"
+    QString startWell;         // e.g. "B1"
+    double  seedVolumeUL = 0;  // rounded
+    QString notes;             // "compound" or "standard"
+};
+
+struct DilutionAuditRow {
+    QString daughterBarcode;   // "Daughter_1"
+    QString analyte;           // compound name or standard name
+    QString srcWell;           // e.g. "B1"
+    QString dstWell;           // e.g. "B2"
+    double  transferUL = 0;    // rounded
+    QString notes;             // "compound" or "standard"
+};
+
+static QStringList renderSeedAuditCSV(const QList<SeedAuditRow>& rows) {
+    QStringList L;
+    L << "Daughter,Analyte,MatrixBarcode,MatrixWell,StartWell,SeedVolume_uL,Notes";
+    for (const auto& r : rows) {
+        L << QString("%1,%2,%3,%4,%5,%6,%7")
+        .arg(r.daughterBarcode,
+             r.analyte,
+             r.matrixBarcode,
+             toA01(r.matrixWell),
+             toA01(r.startWell),
+             QString::number(roundUp01(r.seedVolumeUL), 'f', 1),
+             r.notes);
+    }
+    return L;
+}
+
+static QStringList renderDilutionAuditCSV(const QList<DilutionAuditRow>& rows) {
+    QStringList L;
+    L << "Daughter,Analyte,From,To,Transfer_uL,Notes";
+    for (const auto& r : rows) {
+        L << QString("%1,%2,%3,%4,%5,%6")
+        .arg(r.daughterBarcode,
+             r.analyte,
+             toA01(r.srcWell),
+             toA01(r.dstWell),
+             QString::number(roundUp01(r.transferUL), 'f', 1),
+             r.notes);
+    }
+    return L;
+}
+
 // -------- Direction parsing (LTR default) --------
 static bool dmsoDispenseRightToLeft(const QJsonObject& exp) {
     const QString s = exp.value("dmso_direction").toString().trimmed().toLower();
@@ -426,6 +478,10 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
         if (err) *err = QObject::tr("No daughter_plates in JSON.");
         return false;
     }
+
+    // ---- Audit collectors (across ALL daughter plates) ----
+    QList<SeedAuditRow>     seedAudit;
+    QList<DilutionAuditRow> dilutionAudit;
 
     // Load standards matrix
     QVector<StandardSource> availableStandards;
@@ -705,6 +761,7 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
         const QJsonObject plate  = plates.at(di).toObject();
         const QJsonObject wells  = plate.value("wells").toObject();
         const QString dghtLabel  = QString("Daughter[%1]").arg(QString("%1").arg(di+1, 3, 10, QChar('0')));
+        const QString dghtBarcodeStr = QString("Daughter_%1").arg(di+1);
         const int nDil = std::max(1, numberOfDilutionsFromJson(exp));
 
         // Collect hits (compounds)
@@ -731,6 +788,8 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
         // ------------------ SAME-LABEL chain discovery for compounds ------------------
         QSet<QString> startWells, diluteWells, controlDmsoWells;
         QMap<QString,int> perHitStep;
+        QMap<QString, QString> startWell2Product; // normalized start well -> compound name
+
 
         auto labelOf = [&](const QString& wn)->QString {
             return wells.value(wn).toString().trimmed();
@@ -768,6 +827,7 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
             }
 
             startWells.insert(start);
+            startWell2Product[start] = h.product;
             visited.insert(start);
             perHitStep[start] = step; // 0 if single well
 
@@ -911,6 +971,17 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
                             const int startPos = wellNameToIndex96(chain.first());
                             appendADFluentOneShot(L, standardMatrixLabel, stdSrcPos, dghtLabel, startPos,
                                                   volStartStandard, "DMSO Matrix");
+                            // Audit: standard seeding
+                            SeedAuditRow ar;
+                            ar.daughterBarcode = dghtBarcodeStr;
+                            ar.analyte         = (stdName.isEmpty() ? "Standard" : stdName);
+                            ar.matrixBarcode   = stdBarcode;
+                            ar.matrixWell      = stdSrcWell;
+                            ar.startWell       = chain.first();              // start well string, e.g. "A1"
+                            ar.seedVolumeUL    = volStartStandard;
+                            ar.notes           = "standard";
+                            seedAudit.push_back(ar);
+
                         }
                     }
                 }
@@ -938,6 +1009,17 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
                         const int dstPos = wellNameToIndex96(h.dstWell);
                         appendADFluentOneShot(L, matrixLabel, srcPos, dghtLabel, dstPos,
                                               volCompound, "DMSO Matrix");
+                        // Audit: compound seeding
+                        SeedAuditRow ar;
+                        ar.daughterBarcode = dghtBarcodeStr;
+                        ar.analyte         = h.product;
+                        ar.matrixBarcode   = h.srcBarcode;
+                        ar.matrixWell      = h.srcWell;
+                        ar.startWell       = h.dstWell;
+                        ar.seedVolumeUL    = volCompound;
+                        ar.notes           = "compound";
+                        seedAudit.push_back(ar);
+
                     }
                 }
 
@@ -980,6 +1062,18 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
                     QList<int> pos;
                     for (const auto& wn : chain) pos.push_back(wellNameToIndex96(wn));
                     emitChain(pos, stdTransferVol);
+                    // Audit: standard dilution steps
+                    for (int i = 0; i + 1 < pos.size(); ++i) {
+                        DilutionAuditRow dr;
+                        dr.daughterBarcode = dghtBarcodeStr;
+                        dr.analyte         = (stdName.isEmpty() ? "Standard" : stdName);
+                        dr.srcWell         = indexToWellName96(pos[i]);
+                        dr.dstWell         = indexToWellName96(pos[i+1]);
+                        dr.transferUL      = stdTransferVol;
+                        dr.notes           = "standard";
+                        dilutionAudit.push_back(dr);
+                    }
+
                 }
             }
 
@@ -1018,7 +1112,24 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
                 std::sort(chains.begin(), chains.end(),
                           [](const CChain& a, const CChain& b){ return a.startIdx < b.startIdx; });
 
-                for (const auto& c : chains) emitChain(c.pos, transferVol);
+                for (const auto& c : chains){
+
+                    emitChain(c.pos, transferVol);
+                    // Audit: compound dilution steps
+                    const QString startWellName = indexToWellName96(c.startIdx);
+                    const QString analyteName   = startWell2Product.value(startWellName, QString("Compound_%1").arg(startWellName));
+                    for (int i = 0; i + 1 < c.pos.size(); ++i) {
+                        DilutionAuditRow dr;
+                        dr.daughterBarcode = dghtBarcodeStr;
+                        dr.analyte         = analyteName;
+                        dr.srcWell         = indexToWellName96(c.pos[i]);
+                        dr.dstWell         = indexToWellName96(c.pos[i+1]);
+                        dr.transferUL      = transferVol;
+                        dr.notes           = "compound";
+                        dilutionAudit.push_back(dr);
+                    }
+
+                }
             }
 
             L << "B;";
@@ -1038,6 +1149,35 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
             outs.push_back(produceDaughterPlateMap(di, plate, placedStart, perHitStep));
         }
     }
+
+    // ---- Export experiment JSON alongside GWLs ----
+    {
+        FileOut fjson;
+        fjson.relativePath = QString("Audit/experiment.json");
+        const QString jsonPretty = QString::fromUtf8(QJsonDocument(exp).toJson(QJsonDocument::Indented));
+        fjson.lines = jsonPretty.split('\n');
+        fjson.isAux = true;
+        outs.push_back(std::move(fjson));
+    }
+
+    // ---- Export seed volumes audit ----
+    if (!seedAudit.isEmpty()) {
+        FileOut fseed;
+        fseed.relativePath = QString("Audit/SeedVolumes.csv");
+        fseed.lines = renderSeedAuditCSV(seedAudit);
+        fseed.isAux = true;
+        outs.push_back(std::move(fseed));
+    }
+
+    // ---- Export dilution steps audit ----
+    if (!dilutionAudit.isEmpty()) {
+        FileOut fdil;
+        fdil.relativePath = QString("Audit/DilutionSteps.csv");
+        fdil.lines = renderDilutionAuditCSV(dilutionAudit);
+        fdil.isAux = true;
+        outs.push_back(std::move(fdil));
+    }
+
 
     return true;
 }
