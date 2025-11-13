@@ -48,7 +48,7 @@ void PlateWidget::clearLayout()
 {
     saveState();
     for (auto &wd : m_layout)
-        wd = WellData();
+        wd = WellData(); // default: None, id=0, dil=0
     update();
     emit layoutChanged();
 }
@@ -92,13 +92,12 @@ QRect PlateWidget::cellRect(int row, int col) const
 
 QColor PlateWidget::sampleColor(int sampleId, int dilutionStep) const
 {
-    // Unique hue per sample
+    // Unique-ish hue per sample ID
     int hue = (sampleId * 137) % 360;
     int sat = 200;
-    // Darkest at step=1, brightest at step=m_cols
     const int dark = 55;
     const int bright = 255;
-    int val = dark + ( (dilutionStep - 1) * (bright - dark) ) / (m_cols - 1);
+    int val = dark + ((dilutionStep - 1) * (bright - dark)) / qMax(1, (m_cols - 1));
     val = qBound(dark, val, bright);
     return QColor::fromHsv(hue, sat, val);
 }
@@ -140,7 +139,7 @@ void PlateWidget::paintEvent(QPaintEvent*)
         p.drawText(lc, Qt::AlignCenter, colLabel);
     }
 
-    // Draw wells (unchanged)
+    // Draw wells
     for (int r = 0; r < m_rows; ++r) {
         for (int c = 0; c < m_cols; ++c) {
             int idx = r * m_cols + c;
@@ -153,11 +152,12 @@ void PlateWidget::paintEvent(QPaintEvent*)
                 fill = sampleColor(wd.sampleId, wd.dilutionStep);
                 break;
             case DMSO:
-                fill = QColor(152, 251, 152);
+                fill = QColor(152, 251, 152); // pale green
                 break;
             case Standard:
                 fill = Qt::red;
                 break;
+            case None:
             default:
                 break;
             }
@@ -165,15 +165,16 @@ void PlateWidget::paintEvent(QPaintEvent*)
             p.setPen(Qt::black);
             p.drawRect(rect);
 
-            if (wd.type == Sample) {
+            // Text for Sample and Standard (now both render ID & dilution)
+            if (wd.type == Sample || wd.type == Standard) {
                 QFont f = p.font();
-                f.setPointSize(m_cellSize / 5);
+                f.setPointSize(qMax(6, m_cellSize / 5));
                 p.setFont(f);
+                const QString prefix = (wd.type == Sample) ? "S" : "Std";
                 p.drawText(rect, Qt::AlignCenter,
-                           QString("S%1\n%2")
-                               .arg(wd.sampleId)
-                               .arg(wd.dilutionStep));
+                           QString("%1%2\n%3").arg(prefix).arg(wd.sampleId).arg(wd.dilutionStep));
             }
+            // DMSO/None: no text (id/dil are 0,0 by definition)
         }
     }
 }
@@ -184,8 +185,11 @@ void PlateWidget::mousePressEvent(QMouseEvent* event)
     bool shift = mods.testFlag(Qt::ShiftModifier);
     bool ctrl  = mods.testFlag(Qt::ControlModifier);
 
-    // 1) Serial‐dilution rectangle: Ctrl+Shift in Sample mode
-    if (shift && ctrl && m_currentType == Sample) {
+    // 1) Serial-dilution rectangle:
+    //    Keep original behavior (Ctrl+Shift in Sample mode).
+    //    If you want this for Standard too, change the condition below to:
+    //    (m_currentType == Sample || m_currentType == Standard)
+    if (shift && ctrl && (m_currentType == Sample || m_currentType == Standard)) {
         saveState();
         m_serialSelecting = true;
         m_selecting = false;
@@ -193,7 +197,7 @@ void PlateWidget::mousePressEvent(QMouseEvent* event)
         m_rubberBand->setGeometry(QRect(m_dragStart, QSize()));
         m_rubberBand->show();
     }
-    // 2) Normal rectangle selection: Shift in any non‐None mode
+    // 2) Normal rectangle selection: Shift in any non-None mode
     else if (shift && m_currentType != None) {
         saveState();
         m_selecting = true;
@@ -202,7 +206,7 @@ void PlateWidget::mousePressEvent(QMouseEvent* event)
         m_rubberBand->setGeometry(QRect(m_dragStart, QSize()));
         m_rubberBand->show();
     }
-    // 3) Single‐well click (all modes)
+    // 3) Single-well click (all modes)
     else {
         saveState();
         setWellAt(event->pos());
@@ -260,9 +264,12 @@ void PlateWidget::applySelectionRect(const QRect& rect)
                 }
                 continue;
             }
-            m_layout[idx] = WellData{m_currentType,
-                                     m_currentSample,
-                                     m_currentDilutionStep};
+
+            // Normalize data: DMSO and None must be (0,0). Sample/Standard keep selected id/dil.
+            int id  = (m_currentType == DMSO || m_currentType == None) ? 0 : m_currentSample;
+            int dil = (m_currentType == DMSO || m_currentType == None) ? 0 : m_currentDilutionStep;
+
+            m_layout[idx] = WellData{ m_currentType, id, dil };
         }
     }
     update();
@@ -285,11 +292,25 @@ void PlateWidget::applySerialSelectionRect(const QRect& rect)
     for (int r = r0; r <= r1; ++r) {
         for (int c = c0; c <= c1; ++c) {
             int idx = r * m_cols + c;
+
+            // For serial selection we follow existing logic:
+            //  - Sample: id increments down rows, dil increments across columns.
+            //  - Others: keep normalized rules (DMSO/None -> 0,0; Standard behaves like Sample).
             int sample = m_currentSample + (r - r0);
             int dil    = m_currentDilutionStep + (c - c0);
             sample = qBound(1, sample, m_rows * m_cols);
             dil    = qBound(1, dil, m_cols);
-            m_layout[idx] = WellData{m_currentType, sample, dil};
+
+            WellType t = m_currentType;
+
+            if (t == DMSO || t == None) {
+                sample = 0;
+                dil    = 0;
+            }
+            // If you prefer Standard NOT to increment ID across rows, uncomment next line:
+            // if (t == Standard) sample = m_currentSample;
+
+            m_layout[idx] = WellData{ t, sample, dil };
         }
     }
     update();
@@ -320,9 +341,14 @@ void PlateWidget::setWellAt(const QPoint& pos)
         return;
     }
 
-    m_layout[idx] = WellData{m_currentType,
-                             m_currentSample,
-                             m_currentDilutionStep};
+    // Normalize when writing:
+    int id  = (m_currentType == DMSO || m_currentType == None) ? 0 : m_currentSample;
+    int dil = (m_currentType == DMSO || m_currentType == None) ? 0 : m_currentDilutionStep;
+
+    m_layout[idx] = WellData{ m_currentType, id, dil };
     update();
     emit layoutChanged();
 }
+
+
+

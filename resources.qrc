@@ -19,4 +19,7 @@
         <file>resources/data/standards_matrix.json</file>
         <file>resources/data/volumeMap.json</file>
     </qresource>
+    <qresource prefix="/cert">
+        <file>resources/cert/prod-ca-2021.crt</file>
+    </qresource>
 </RCC>

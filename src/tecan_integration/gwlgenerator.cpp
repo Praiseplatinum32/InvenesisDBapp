@@ -354,7 +354,6 @@ static bool dmsoDispenseRightToLeft(const QJsonObject& exp) {
     return false;
 }
 
-
 // Row/Col from 1..96 index
 static inline int rowFromIndex96(int idx) { return (idx - 1) % 8; }     // 0..7 (A..H)
 static inline int colFromIndex96(int idx) { return (idx - 1) / 8 + 1; } // 1..12
@@ -366,8 +365,7 @@ static void appendAThenManyD_Vary(QStringList &out,
                                   const QList<QPair<int,double>> &posVols, // [(destIdx, volUL_rounded)]
                                   const QString &liqClass)
 {
-    // Sum of already-rounded per-dispense volumes so A; matches D; exactly
-    double total = 0.0;
+    double total = 0.0; // already-rounded sum
     for (const auto &pv : posVols) total += pv.second;
 
     const QString vStr = QString::number(roundUp01(total), 'f', 1);
@@ -378,7 +376,6 @@ static void appendAThenManyD_Vary(QStringList &out,
         out << QString("D;%1;;;%2;;%3;%4").arg(dstLabel).arg(pv.first).arg(dVol).arg(liqClass);
     }
 }
-
 
 } // namespace
 
@@ -534,7 +531,7 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
     const QString testId     = outer_.testId_;
     const double stockMicroM = outer_.stockConc_;
 
-    // Volume plans
+    // Volume plans (global defaults)
     VolumePlanEntry vpe;
     QString verr;
     if (!outer_.loadVolumePlan(testId, stockMicroM, &vpe, &verr)) {
@@ -552,7 +549,7 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
         }
     }
 
-    // Round up volumes to 0.1 µL
+    // Round up volumes to 0.1 µL (globals)
     const double volMother   = roundUp01(vpe.volMother);
     const double dmsoStart   = roundUp01(vpe.dmso);
     const double transferVol = roundUp01(df > 0.0 ? vpe.volMother / df : 0.0);
@@ -562,6 +559,73 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
     const double stdDmsoStart   = roundUp01(stdVpe.dmso);
     const double stdTransferVol = roundUp01(df > 0.0 ? stdVpe.volMother / df : 0.0);
     const double stdDmsoDilute  = roundUp01(stdTransferVol > 0.0 ? stdVpe.volMother - stdTransferVol : 0.0);
+
+    // ---- Per-compound volume/dilution plans ----
+    struct PerCmpPlan {
+        double volMother;    // µL
+        double dmsoStart;    // µL (seed)
+        double transferVol;  // µL (per dilution transfer)
+        double dmsoDilute;   // µL (per dilution DMSO top-up)
+        double df;           // dilution factor
+        int    nDil;         // number of dilution steps
+        double stockConc;    // µM
+    };
+
+    // Make a default plan from the GLOBAL values computed above
+    auto makeDefaultPlan = [&]() -> PerCmpPlan {
+        PerCmpPlan p;
+        p.volMother   = volMother;
+        p.dmsoStart   = dmsoStart;
+        p.transferVol = transferVol;
+        p.dmsoDilute  = dmsoDilute;
+        p.df          = df;
+        p.nDil        = std::max(1, numberOfDilutionsFromJson(exp));
+        p.stockConc   = stockMicroM;
+        return p;
+    };
+
+    QMap<QString, PerCmpPlan> perPlan; // key: product_name
+
+    auto computePlanFor = [&](const QJsonObject& co)->PerCmpPlan {
+        PerCmpPlan p = makeDefaultPlan();
+
+        // per-compound stock (normalize to µM if provided in mM)
+        double cStock = readDouble(co, "concentration", p.stockConc);
+        const QString cUnit = co.value("concentration_unit").toString().trimmed().toLower();
+        if (cUnit == "mm") cStock *= 1000.0;
+
+        // optional per-compound overrides
+        double cDf   = readDouble(co, "dilution_factor", p.df);
+        int    cNDil = co.value("number_of_dilutions").toInt(p.nDil);
+
+        // Try to load a volume plan for this compound's stock conc
+        VolumePlanEntry cvp; QString cvpErr;
+        if (outer_.loadVolumePlan(testId, cStock, &cvp, &cvpErr)) {
+            p.volMother   = roundUp01(cvp.volMother);
+            p.dmsoStart   = roundUp01(cvp.dmso);
+            p.df          = (cDf > 0.0 ? cDf : p.df);
+            p.transferVol = roundUp01(p.df > 0.0 ? cvp.volMother / p.df : 0.0);
+            p.dmsoDilute  = roundUp01(p.transferVol > 0.0 ? cvp.volMother - p.transferVol : 0.0);
+        } else {
+            // Fall back to the default plan but still honor per-compound DF
+            p.df          = (cDf > 0.0 ? cDf : p.df);
+            p.transferVol = roundUp01(p.df > 0.0 ? p.volMother / p.df : 0.0);
+            p.dmsoDilute  = roundUp01(p.transferVol > 0.0 ? p.volMother - p.transferVol : 0.0);
+        }
+
+        p.nDil      = std::max(1, cNDil);
+        p.stockConc = cStock;
+        return p;
+    };
+
+    // Build plans for every compound in the JSON
+    const auto cmpArr = exp.value("compounds").toArray();
+    for (const auto& vv : cmpArr) {
+        const auto co  = vv.toObject();
+        const QString nm = co.value("product_name").toString().trimmed();
+        if (nm.isEmpty()) continue;
+        perPlan.insert(nm, computePlanFor(co));
+    }
 
     // Build compound index map (name -> matrix barcode + well)
     struct SrcLoc { QString barcode; QString well; };
@@ -616,7 +680,7 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
         const QString dghtBarcode = QString("Daughter_%1").arg(di+1);
         const QString projectCode = exp.value("project_code").toString();
         const QJsonObject wells   = plate.value("wells").toObject();
-        const int nDil = std::max(1, numberOfDilutionsFromJson(exp));
+        const int nDilGlob = std::max(1, numberOfDilutionsFromJson(exp));
 
         auto labelOf = [&](const QString& wn)->QString {
             return wells.value(wn).toString().trimmed();
@@ -690,7 +754,7 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
             r0.containerBarcode = dghtBarcode;
             r0.sampleAlias = name;
             r0.wellA01     = toA01(dst);
-            r0.volumeUL    = volMother;
+            r0.volumeUL    = volMother; // just CSV completeness (global ok)
             r0.volumeUnit  = "ul";
             r0.conc        = 0.0; r0.concUnit = "uM";
             r0.u1 = QString("%1_%2").arg(r0.containerBarcode, r0.wellA01);
@@ -705,7 +769,7 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
 
             const QString lab = wells.value(dst).toString().trimmed();
             int cur = wellNameToIndex96(dst);
-            for (int s=1;s<nDil;++s) {
+            for (int s=1;s<nDilGlob;++s) {
                 const int nxt = cur + step;
                 if (nxt < 1 || nxt > 96) break;
                 const QString wn = indexToWellName96(nxt);
@@ -715,7 +779,7 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
                 rd.containerBarcode = dghtBarcode;
                 rd.sampleAlias = QString("%1_dil%2").arg(name).arg(s);
                 rd.wellA01     = toA01(wn);
-                rd.volumeUL    = volMother;
+                rd.volumeUL    = volMother; // CSV completeness
                 rd.volumeUnit  = "ul";
                 rd.conc        = 0.0; rd.concUnit = "uM";
                 rd.u1 = QString("%1_%2").arg(rd.containerBarcode, rd.wellA01);
@@ -762,7 +826,7 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
         const QJsonObject wells  = plate.value("wells").toObject();
         const QString dghtLabel  = QString("Daughter[%1]").arg(QString("%1").arg(di+1, 3, 10, QChar('0')));
         const QString dghtBarcodeStr = QString("Daughter_%1").arg(di+1);
-        const int nDil = std::max(1, numberOfDilutionsFromJson(exp));
+        const int nDilGlob = std::max(1, numberOfDilutionsFromJson(exp));
 
         // Collect hits (compounds)
         struct Hit { QString product; QString dstWell; QString srcBarcode; QString srcWell; };
@@ -789,7 +853,6 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
         QSet<QString> startWells, diluteWells, controlDmsoWells;
         QMap<QString,int> perHitStep;
         QMap<QString, QString> startWell2Product; // normalized start well -> compound name
-
 
         auto labelOf = [&](const QString& wn)->QString {
             return wells.value(wn).toString().trimmed();
@@ -833,7 +896,7 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
 
             if (step != 0) {
                 int cur = startIdx;
-                for (int s=1; s<nDil; ++s) {
+                for (int s=1; s<nDilGlob; ++s) {
                     const int nxt = cur + step;
                     if (nxt < 1 || nxt > 96) break;
                     const QString wn = indexToWellName96(nxt);
@@ -875,28 +938,53 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
             // Use rounded per-dispense volumes so A; total equals sum(D;)
             QMap<int, QMap<int,double>> row2pos2vol;
 
-            auto addSet = [&](const QSet<QString>& names, double volRaw){
-                const double v = roundUp01(volRaw);
-                if (v <= 0.0) return;
-                for (int idx : namesToIndices(names)) {
-                    const int r = rowFromIndex96(idx);
-                    // If a position appears twice (shouldn't), volumes add up.
-                    row2pos2vol[r][idx] += v;
-                }
+            auto addVolAt = [&](int destIdx, double v){
+                const double vv = roundUp01(v);
+                if (vv <= 0.0) return;
+                row2pos2vol[rowFromIndex96(destIdx)][destIdx] += vv;
             };
 
-            const double volDilute = (dmsoDilute > 1e-6 ? dmsoDilute : volMother);
-            addSet(startWells,       dmsoStart);
-            addSet(diluteWells,      volDilute);
-            addSet(controlDmsoWells, volMother);
-            addSet(stdStartWells,    stdDmsoStart);
-            addSet(stdDiluteWells,   stdDmsoDilute);
+            // Standards per their own plan
+            for (const auto& chain : stdChains) {
+                if (chain.isEmpty()) continue;
+                addVolAt(wellNameToIndex96(chain.first()), stdDmsoStart);
+                for (int i = 1; i < chain.size(); ++i)
+                    addVolAt(wellNameToIndex96(chain.at(i)), stdDmsoDilute);
+            }
+
+            // Compounds: per-chain using perPlan of THAT product
+            {
+                QList<QString> starts = startWells.values();
+                for (const auto& start : starts) {
+                    const QString prod = wells.value(start).toString().trimmed();
+                    const auto plan = perPlan.value(prod, makeDefaultPlan());
+                    const int step = perHitStep.value(start, 0);
+                    const int nDilC = std::max(1, plan.nDil);
+
+                    int cur = wellNameToIndex96(start);
+                    addVolAt(cur, plan.dmsoStart); // start
+
+                    if (step != 0) {
+                        for (int s=1; s<nDilC; ++s) {
+                            const int nxt = cur + step;
+                            if (nxt < 1 || nxt > 96) break;
+                            const QString wn = indexToWellName96(nxt);
+                            if (wells.value(wn).toString().trimmed() != prod) break;
+                            addVolAt(nxt, plan.dmsoDilute);
+                            cur = nxt;
+                        }
+                    }
+                }
+            }
+
+            // DMSO controls use full mother volume (global)
+            for (int idx : namesToIndices(controlDmsoWells)) addVolAt(idx, volMother);
 
             // Emit per row
             for (int r = 0; r < 8; ++r) {
                 if (!row2pos2vol.contains(r) || row2pos2vol[r].isEmpty()) continue;
 
-                // Make a sorted list of (destIdx, roundedVol) in column order
+                // sorted list of (destIdx, roundedVol) in column order
                 QList<QPair<int,double>> posVols;
                 posVols.reserve(row2pos2vol[r].size());
                 for (auto it = row2pos2vol[r].cbegin(); it != row2pos2vol[r].cend(); ++it)
@@ -942,7 +1030,6 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
             outs.push_back(std::move(fo));
         }
 
-
         // ---- 2) Matrix compound placement files (first also seeds Standard start) ----
         {
             int mIdx = 0;
@@ -977,38 +1064,36 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
                             ar.analyte         = (stdName.isEmpty() ? "Standard" : stdName);
                             ar.matrixBarcode   = stdBarcode;
                             ar.matrixWell      = stdSrcWell;
-                            ar.startWell       = chain.first();              // start well string, e.g. "A1"
+                            ar.startWell       = chain.first();
                             ar.seedVolumeUL    = volStartStandard;
                             ar.notes           = "standard";
                             seedAudit.push_back(ar);
-
                         }
                     }
                 }
 
-                // Compounds: seed ONLY the starting wells (one-shot per placement)
-                const double volCompound = roundUp01(std::max(0.0, volMother - dmsoStart));
-                if (volCompound > 1e-6) {
-                    // keep only hits whose destination is a starting well
-                    QVector<Hit> startSeeds;
-                    startSeeds.reserve(mhits.size());
+                // Compounds: seed ONLY the starting wells (one-shot per placement, PER-COMPOUND volume)
+                {
+                    QVector<Hit> startSeeds; startSeeds.reserve(mhits.size());
                     for (const auto &h : mhits) {
-                        if (startWells.contains(normWell(h.dstWell))) {
-                            startSeeds.push_back(h);
-                        }
+                        if (startWells.contains(normWell(h.dstWell))) startSeeds.push_back(h);
                     }
 
-                    // deterministic order (by destination well index)
                     std::sort(startSeeds.begin(), startSeeds.end(),
                               [](const Hit& a, const Hit& b){
                                   return wellNameToIndex96(a.dstWell) < wellNameToIndex96(b.dstWell);
                               });
 
                     for (const auto &h : startSeeds) {
+                        const auto plan = perPlan.value(h.product, makeDefaultPlan());
+                        const double volCompound = roundUp01(std::max(0.0, plan.volMother - plan.dmsoStart));
+                        if (volCompound <= 0.0) continue;
+
                         const int srcPos = wellNameToIndex96(h.srcWell);
                         const int dstPos = wellNameToIndex96(h.dstWell);
                         appendADFluentOneShot(L, matrixLabel, srcPos, dghtLabel, dstPos,
                                               volCompound, "DMSO Matrix");
+
                         // Audit: compound seeding
                         SeedAuditRow ar;
                         ar.daughterBarcode = dghtBarcodeStr;
@@ -1019,7 +1104,6 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
                         ar.seedVolumeUL    = volCompound;
                         ar.notes           = "compound";
                         seedAudit.push_back(ar);
-
                     }
                 }
 
@@ -1062,6 +1146,7 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
                     QList<int> pos;
                     for (const auto& wn : chain) pos.push_back(wellNameToIndex96(wn));
                     emitChain(pos, stdTransferVol);
+
                     // Audit: standard dilution steps
                     for (int i = 0; i + 1 < pos.size(); ++i) {
                         DilutionAuditRow dr;
@@ -1073,31 +1158,33 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
                         dr.notes           = "standard";
                         dilutionAudit.push_back(dr);
                     }
-
                 }
             }
 
-            // ---------------- Compounds (sorted by the first A; index) ----------------
-            if (transferVol > 1e-6 && !startWells.isEmpty()) {
+            // ---------------- Compounds (sorted by the first A; index), PER-COMPOUND plan ----------------
+            {
                 struct CChain { int startIdx; QList<int> pos; };
                 QVector<CChain> chains;
 
-                // collect chains from each start
+                // collect chains with per-compound length
                 QList<QString> starts = startWells.values();
                 for (const auto& start : starts) {
                     const int step = perHitStep.value(start, 0);
                     if (step == 0) continue; // no dilution chain
 
-                    const QString lab = labelOf(start);
+                    const QString prod = labelOf(start);
+                    const auto plan = perPlan.value(prod, makeDefaultPlan());
+                    const int nDilC = std::max(1, plan.nDil);
+
                     QList<int> pos;
                     int cur = wellNameToIndex96(start);
                     pos.push_back(cur);
 
-                    for (int s = 1; s < nDil; ++s) {
+                    for (int s = 1; s < nDilC; ++s) {
                         const int nxt = cur + step;
                         if (nxt < 1 || nxt > 96) break;
                         const QString wn = indexToWellName96(nxt);
-                        if (labelOf(wn) != lab) break;
+                        if (labelOf(wn) != prod) break;
                         pos.push_back(nxt);
                         cur = nxt;
                     }
@@ -1112,23 +1199,25 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
                 std::sort(chains.begin(), chains.end(),
                           [](const CChain& a, const CChain& b){ return a.startIdx < b.startIdx; });
 
+                // emit with per-compound transfer volume + audit
                 for (const auto& c : chains){
-
-                    emitChain(c.pos, transferVol);
-                    // Audit: compound dilution steps
                     const QString startWellName = indexToWellName96(c.startIdx);
-                    const QString analyteName   = startWell2Product.value(startWellName, QString("Compound_%1").arg(startWellName));
+                    const QString analyteName   = startWell2Product.value(startWellName,
+                                                                        QString("Compound_%1").arg(startWellName));
+                    const auto plan = perPlan.value(analyteName, makeDefaultPlan());
+
+                    emitChain(c.pos, plan.transferVol);
+
                     for (int i = 0; i + 1 < c.pos.size(); ++i) {
                         DilutionAuditRow dr;
                         dr.daughterBarcode = dghtBarcodeStr;
                         dr.analyte         = analyteName;
                         dr.srcWell         = indexToWellName96(c.pos[i]);
                         dr.dstWell         = indexToWellName96(c.pos[i+1]);
-                        dr.transferUL      = transferVol;
+                        dr.transferUL      = plan.transferVol;
                         dr.notes           = "compound";
                         dilutionAudit.push_back(dr);
                     }
-
                 }
             }
 
@@ -1136,8 +1225,6 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
             fo.lines = L;
             outs.push_back(std::move(fo));
         }
-
-
 
         // Generate plate maps
         if (di == 0) {
@@ -1177,7 +1264,6 @@ bool GWLGenerator::FluentBackend::generate(const QJsonObject &exp,
         fdil.isAux = true;
         outs.push_back(std::move(fdil));
     }
-
 
     return true;
 }

@@ -16,6 +16,8 @@ class PlateMapDialog : public QDialog
 
 public:
     explicit PlateMapDialog(QWidget* parent = nullptr);
+    static bool parseA01(const QString& a01, int& row1, int& col1);  // from "A01" -> (1,1)
+    static PlateWidget::WellType roleFromString(const QString& s);
 
 private slots:
     void onSelectionChanged(int id);
@@ -33,6 +35,13 @@ private:
                   PlateWidget* widget,
                   int totalWells);
 
+    // Helpers for CSV formatting/parsing
+    static QString toA01(int row1Based, int col1Based);                 // "A01".."P24" etc.
+
+    static QString roleToString(PlateWidget::WellType t);               // Sample/Standard/DMSO/Void
+
+
+private:
     PlateWidget* plate384;
     PlateWidget* plate96;
 
@@ -53,6 +62,4 @@ private:
     QPushButton* open1536Btn;
 };
 
-
-
-#endif
+#endif // PLATEMAPDIALOG_H
