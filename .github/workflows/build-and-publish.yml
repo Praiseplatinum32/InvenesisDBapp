@@ -71,23 +71,35 @@ jobs:
       - name: Stage IFW data/ (copy app + DLLs into installer-config)
         shell: pwsh
         run: |
+          # Target data directory used by IFW
           $data = Join-Path "${{ env.INSTALLER_ROOT }}" "packages\\${{ env.PKG_ID }}\\data"
           New-Item -ItemType Directory -Force -Path $data | Out-Null
 
+          # Folder where windeployqt put the exe + Qt DLLs
           $src = Split-Path -Parent "${{ steps.findexe.outputs.exe_path }}"
 
-          # Run robocopy
+          # Copy everything from build dir into IFW data/
           robocopy "$src" "$data" *.* /E
           $rc = $LASTEXITCODE
 
           # Robocopy: 0–7 = success, >=8 = failure
           if ($rc -ge 8) {
             Write-Error "Robocopy failed with exit code $rc"
-            exit $rc       # fail the step
-          } else {
-            Write-Host "Robocopy completed with exit code $rc (treated as success)"
-            exit 0         # force success for GitHub Actions
+            exit $rc
           }
+
+          # Copy extra 3rd-party DLLs (PostgreSQL, OpenSSL, etc.)
+          $extraDllDir = Join-Path "${{ github.workspace }}" "installer-config\\extra-dlls"
+          if (Test-Path $extraDllDir) {
+            Write-Host "Copying extra DLLs from $extraDllDir to $data"
+            Copy-Item -Path (Join-Path $extraDllDir "*.dll") -Destination $data -Force
+          } else {
+            Write-Host "No extra DLL directory found at $extraDllDir (skipping extra DLLs)"
+          }
+
+          # Normalize step exit for GitHub Actions
+          exit 0
+
 
       - name: Build IFW repository (repogen)
         shell: pwsh
