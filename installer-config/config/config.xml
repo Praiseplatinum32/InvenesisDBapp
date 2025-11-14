@@ -9,7 +9,7 @@
   <!-- We'll test locally first; later replace with your hosted URL -->
   <RemoteRepositories>
     <Repository>
-      <Url>http://localhost:8000/</Url>
+      <Url>https://praiseplatinum32.github.io/InvenesisDBapp/</Url>
     </Repository>
   </RemoteRepositories>
 </Installer>

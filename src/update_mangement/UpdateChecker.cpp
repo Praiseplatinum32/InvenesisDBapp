@@ -15,7 +15,7 @@ QVersionNumber UpdateChecker::currentVersion() const {
 void UpdateChecker::checkNow(bool showNoUpdatesDialog) {
     qInfo() << "I am checking";
     // Host this file on HTTPS (e.g., https://updates.invenesis.local/version.json)
-    const QUrl url(QStringLiteral("https://YOUR_UPDATE_HOST/version.json"));
+    const QUrl url(QStringLiteral("https://praiseplatinum32.github.io/InvenesisDBapp/version.json"));
     QNetworkRequest req(url);
     auto* reply = nam_.get(req);
     connect(reply, &QNetworkReply::finished, this, [=](){
