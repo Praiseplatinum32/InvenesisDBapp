@@ -11,7 +11,7 @@ build_test/
 *.log
 *.obj
 *.qrc.depends
-
+!installer-config/extra-dlls/*.dll
 # IDE files
 .vscode/
 .idea/
