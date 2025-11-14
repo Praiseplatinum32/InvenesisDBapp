@@ -1,0 +1,132 @@
+name: Build & Publish IFW Repo
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+# Permissions needed to deploy to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    env:
+      QT_VERSION: "6.8.2"              # Your Qt version
+      PKG_ID: "com.invenesis.root"     # Folder under installer-config/packages/
+      INSTALLER_ROOT: "${{ github.workspace }}\\installer-config"
+      BUILD_DIR: "${{ github.workspace }}\\build"
+      EXE_NAME: "Invenesisapp.exe"  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: choco install ninja --no-progress
+
+      - name: Install Qt (desktop, MSVC 2022) + IFW
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}   # "6.8.2"
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          tools: tools_ifw
+          cache: true
+
+      - name: Set up MSVC dev environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure (qt-cmake, Release)
+        shell: pwsh
+        run: |
+          qt-cmake -S . -B "${{ env.BUILD_DIR }}" -G "Ninja" `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_C_COMPILER=cl `
+            -DCMAKE_CXX_COMPILER=cl
+            
+      - name: Build
+        shell: pwsh
+        run: |
+          cmake --build "${{ env.BUILD_DIR }}" --config Release --parallel
+          
+      - name: Locate built EXE
+        id: findexe
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path "${{ env.BUILD_DIR }}" -Recurse -Filter $env:EXE_NAME | Select-Object -First 1
+          if (-not $exe) { throw "Executable $env:EXE_NAME not found under $env:BUILD_DIR" }
+          echo "exe_path=$($exe.FullName)" >> $env:GITHUB_OUTPUT
+          Write-Host "Found EXE at $($exe.FullName)"
+
+      - name: Deploy Qt runtime (windeployqt)
+        shell: pwsh
+        run: |
+          & windeployqt.exe --release --compiler-runtime "${{ steps.findexe.outputs.exe_path }}"
+
+      - name: Stage IFW data/ (copy app + DLLs into installer-config)
+        shell: pwsh
+        run: |
+          $data = Join-Path "${{ env.INSTALLER_ROOT }}" "packages\\${{ env.PKG_ID }}\\data"
+          New-Item -ItemType Directory -Force -Path $data | Out-Null
+          $src = Split-Path -Parent "${{ steps.findexe.outputs.exe_path }}"
+          robocopy "$src" "$data" *.* /E | Out-Null
+
+      - name: Build IFW repository (repogen)
+        shell: pwsh
+        run: |
+          $pkg = Join-Path "${{ env.INSTALLER_ROOT }}" "packages"
+          $repo = Join-Path "${{ env.INSTALLER_ROOT }}" "repo"
+          if (Test-Path $repo) { Remove-Item -Recurse -Force $repo }
+          & repogen.exe -p "$pkg" "$repo"
+
+      - name: Build installer EXE (binarycreator)
+        shell: pwsh
+        run: |
+          $config = Join-Path "${{ env.INSTALLER_ROOT }}" "config\\config.xml"
+          $pkg    = Join-Path "${{ env.INSTALLER_ROOT }}" "packages"
+          $out    = Join-Path "${{ env.BUILD_DIR }}" "InvenesisSetup.exe"
+          & binarycreator.exe -c "$config" -p "$pkg" "$out"
+          # Copy installer into repo so users can download it directly
+          $repo = Join-Path "${{ env.INSTALLER_ROOT }}" "repo"
+          Copy-Item "$out" (Join-Path $repo "InvenesisSetup.exe") -Force
+
+      - name: Generate version.json for UpdateChecker
+        shell: pwsh
+        run: |
+          $pkgXml = Join-Path "${{ env.INSTALLER_ROOT }}" "packages\\${{ env.PKG_ID }}\\meta\\package.xml"
+          [xml]$xml = Get-Content $pkgXml
+          $ver = $xml.Package.Version
+          $notes = ""
+          $notesFile = Join-Path "${{ github.workspace }}" "RELEASE_NOTES.md"
+          if (Test-Path $notesFile) { $notes = (Get-Content $notesFile -Raw) }
+          $json = [ordered]@{
+            latest_version = "$ver"
+            download_url   = "https://praiseplatinum32.github.io/InvenesisDBapp/InvenesisSetup.exe"
+            release_notes  = $notes
+          } | ConvertTo-Json -Depth 3
+          $repo = Join-Path "${{ env.INSTALLER_ROOT }}" "repo"
+          Set-Content -LiteralPath (Join-Path $repo "version.json") -Value $json -Encoding UTF8
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact (IFW repo)
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: installer-config/repo
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
