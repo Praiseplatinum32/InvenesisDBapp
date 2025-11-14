@@ -34,20 +34,19 @@ jobs:
           version: ${{ env.QT_VERSION }}
           host: windows
           target: desktop
+          arch: 'win64_mingw'
           tools: tools_ifw
 
-      - name: Configure (CMake Release)
+      - name: Configure (qt-cmake, Release)
         shell: pwsh
         run: |
-          cmake -S . -B "${{ env.BUILD_DIR }}" -G "Ninja" `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+          qt-cmake -S . -B "${{ env.BUILD_DIR }}" -G "Ninja" -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         shell: pwsh
         run: |
           cmake --build "${{ env.BUILD_DIR }}" --config Release --parallel
-
+          
       - name: Locate built EXE
         id: findexe
         shell: pwsh
