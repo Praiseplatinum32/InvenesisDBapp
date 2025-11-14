@@ -34,7 +34,6 @@ jobs:
           version: ${{ env.QT_VERSION }}
           host: windows
           target: desktop
-          arch: win64_msvc2019_64
           tools: tools_ifw
 
       - name: Configure (CMake Release)
