@@ -73,8 +73,21 @@ jobs:
         run: |
           $data = Join-Path "${{ env.INSTALLER_ROOT }}" "packages\\${{ env.PKG_ID }}\\data"
           New-Item -ItemType Directory -Force -Path $data | Out-Null
+
           $src = Split-Path -Parent "${{ steps.findexe.outputs.exe_path }}"
-          robocopy "$src" "$data" *.* /E | Out-Null
+
+          # Run robocopy
+          robocopy "$src" "$data" *.* /E
+          $rc = $LASTEXITCODE
+
+          # Robocopy: 0–7 = success, >=8 = failure
+          if ($rc -ge 8) {
+            Write-Error "Robocopy failed with exit code $rc"
+            exit $rc       # fail the step
+          } else {
+            Write-Host "Robocopy completed with exit code $rc (treated as success)"
+            exit 0         # force success for GitHub Actions
+          }
 
       - name: Build IFW repository (repogen)
         shell: pwsh
