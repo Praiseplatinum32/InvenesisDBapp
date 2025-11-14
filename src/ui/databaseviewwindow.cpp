@@ -73,28 +73,28 @@ MainWindow::MainWindow(QWidget *parent)
     ui->dataTableView->setModel(proxyModel);
 
     // Connect searchLineEdit with corresponding combo box:
-    connect(ui->searchLineEdit, &QLineEdit::textChanged, this, [=, this](const QString &text){
+    connect(ui->searchLineEdit, &QLineEdit::textChanged, this, [=](const QString &text){
         int column = ui->columnComboBox->currentData().toInt();
         proxyModel->setFilter1(text, column);
     });
 
     // Connect columnComboBox to update filtering immediately:
     connect(ui->columnComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, [=, this](int index) {
+            this, [=](int index) {
                 QString currentText = ui->searchLineEdit->text();
                 int column = ui->columnComboBox->itemData(index).toInt();
                 proxyModel->setFilter1(currentText, column);
             });
 
     // Connect searchLineEdit_2 with corresponding combo box_2:
-    connect(ui->searchLineEdit_2, &QLineEdit::textChanged, this, [=, this](const QString &text) {
+    connect(ui->searchLineEdit_2, &QLineEdit::textChanged, this, [=](const QString &text) {
         int column = ui->columnComboBox_2->currentData().toInt();
         proxyModel->setFilter2(text, column);
     });
 
     // Connect columnComboBox_2 with corresponding search line edit:
     connect(ui->columnComboBox_2, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, [=, this](int index) {
+            this, [=](int index) {
                 QString currentText = ui->searchLineEdit_2->text();
                 int column = ui->columnComboBox_2->itemData(index).toInt();
                 proxyModel->setFilter2(currentText, column);

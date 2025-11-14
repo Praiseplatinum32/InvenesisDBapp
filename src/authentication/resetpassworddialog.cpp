@@ -15,7 +15,7 @@ ResetPasswordDialog::ResetPasswordDialog(QWidget *parent) :
         );
 
     // Toggle both echo mode AND icon
-    connect(showNewPasswordAction, &QAction::triggered, this, [=, this](){
+    connect(showNewPasswordAction, &QAction::triggered, this, [=](){
         if(ui->newPasswordLineEdit->echoMode() == QLineEdit::Password) {
             ui->newPasswordLineEdit->setEchoMode(QLineEdit::Normal);
             showNewPasswordAction->setIcon(QIcon(":/icon/icon/visible.png")); // open eye clearly shown
@@ -31,7 +31,7 @@ ResetPasswordDialog::ResetPasswordDialog(QWidget *parent) :
         );
 
     // Toggle both echo mode AND icon
-    connect(showOldPasswordAction, &QAction::triggered, this, [=, this](){
+    connect(showOldPasswordAction, &QAction::triggered, this, [=](){
         if(ui->oldPasswordLineEdit->echoMode() == QLineEdit::Password) {
             ui->oldPasswordLineEdit->setEchoMode(QLineEdit::Normal);
             showOldPasswordAction->setIcon(QIcon(":/icon/icon/visible.png")); // open eye clearly shown

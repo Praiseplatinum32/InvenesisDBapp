@@ -38,7 +38,7 @@ LoginDialog::LoginDialog(QWidget *parent) :
         );
 
     // Toggle both echo mode AND icon
-    connect(showPasswordAction, &QAction::triggered, this, [=, this](){
+    connect(showPasswordAction, &QAction::triggered, this, [=](){
         if(ui->passwordLineEdit->echoMode() == QLineEdit::Password) {
             ui->passwordLineEdit->setEchoMode(QLineEdit::Normal);
             showPasswordAction->setIcon(QIcon(":/icons/resources/icons/visible.png")); // open eye clearly shown
@@ -58,7 +58,7 @@ LoginDialog::LoginDialog(QWidget *parent) :
     ui->formLayout->setWidget(2, QFormLayout::FieldRole, resetPasswordLabel);
 
     // Connect the click event:
-    connect(resetPasswordLabel, &ClickableLabel::clicked, this, [=, this](){
+    connect(resetPasswordLabel, &ClickableLabel::clicked, this, [=](){
         ResetPasswordDialog dlg(this);
         dlg.exec();
     });

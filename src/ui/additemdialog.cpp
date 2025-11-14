@@ -84,7 +84,7 @@ void AddItemDialog::setupPages()
         tableWidget->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
 
         // Enable "Next" button when data is entered
-        connect(tableWidget, &QTableWidget::cellChanged, this, [=, this]() {
+        connect(tableWidget, &QTableWidget::cellChanged, this, [=]() {
             bool hasData = false;
             for (int row = 0; row < tableWidget->rowCount(); ++row) {
                 QTableWidgetItem *item = tableWidget->item(row, 0);
