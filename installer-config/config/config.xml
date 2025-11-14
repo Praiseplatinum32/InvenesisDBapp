@@ -1,0 +1,15 @@
+<Installer>
+  <Name>Invenesis Automation Suite</Name>
+  <Version>1.0.0</Version>
+  <Title>Invenesis Setup</Title>
+  <Publisher>Invenesis</Publisher>
+  <StartMenuDir>Invenesis</StartMenuDir>
+  <TargetDir>@ApplicationsDir@/Invenesis</TargetDir>
+
+  <!-- We'll test locally first; later replace with your hosted URL -->
+  <RemoteRepositories>
+    <Repository>
+      <Url>http://localhost:8000/</Url>
+    </Repository>
+  </RemoteRepositories>
+</Installer>
