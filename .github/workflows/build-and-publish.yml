@@ -28,20 +28,27 @@ jobs:
       - name: Install Ninja
         run: choco install ninja --no-progress
 
-      - name: Install Qt (desktop, MSVC) + IFW
+      - name: Install Qt (desktop, MSVC 2022) + IFW
         uses: jurplel/install-qt-action@v4
         with:
-          version: ${{ env.QT_VERSION }}
+          version: ${{ env.QT_VERSION }}   # "6.8.2"
           host: windows
           target: desktop
-          arch: 'win64_mingw'
+          arch: win64_msvc2022_64
           tools: tools_ifw
+          cache: true
+
+      - name: Set up MSVC dev environment
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Configure (qt-cmake, Release)
         shell: pwsh
         run: |
-          qt-cmake -S . -B "${{ env.BUILD_DIR }}" -G "Ninja" -DCMAKE_BUILD_TYPE=Release
-
+          qt-cmake -S . -B "${{ env.BUILD_DIR }}" -G "Ninja" `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_C_COMPILER=cl `
+            -DCMAKE_CXX_COMPILER=cl
+            
       - name: Build
         shell: pwsh
         run: |
