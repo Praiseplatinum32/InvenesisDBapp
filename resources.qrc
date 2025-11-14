@@ -14,6 +14,7 @@
         <file>resources/icons/sauvegarder.png</file>
         <file>resources/icons/telechargement-de-fichiers.png</file>
         <file>resources/icons/platemap.png</file>
+        <file>resources/icons/rechargement.png</file>
     </qresource>
     <qresource prefix="/data">
         <file>resources/data/standards_matrix.json</file>

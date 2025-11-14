@@ -51,6 +51,7 @@ private slots:
     void on_actionexportCsvButton_triggered();
     void on_actionTecan_triggered();
     void updateFilterCriteria(); // ✅ Slot for handling dual-column filtering changes
+    void on_actionUpdate_triggered();
 };
 
 #endif // DATABASEVIEWWINDOW_H

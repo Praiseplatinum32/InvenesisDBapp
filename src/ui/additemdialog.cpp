@@ -133,7 +133,7 @@ void AddItemDialog::setupPages()
     ui->submitButton->setEnabled(false);
 
     // Ensure Ctrl+V works across ALL pages
-    QShortcut *pasteShortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_V), this);
+    QShortcut *pasteShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_V), this);
     connect(pasteShortcut, &QShortcut::activated, this, &AddItemDialog::pasteFromClipboard);
 
     qDebug() << "SetupPages execution complete!";

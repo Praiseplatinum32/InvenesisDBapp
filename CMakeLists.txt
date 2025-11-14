@@ -12,8 +12,8 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 # Find Qt components - support both Qt5 and Qt6
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Widgets Sql)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Widgets Sql)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Widgets Sql Network)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Widgets Sql Network)
 
 # Set Qt version for consistent target linking across modules
 if(QT_VERSION_MAJOR EQUAL 6)
@@ -44,8 +44,12 @@ add_subdirectory(src/tecan_integration)
 # 6. UI module (depends on all other modules)
 add_subdirectory(src/ui)
 
+# 7. udate module
+add_subdirectory(src/update_mangement)
+
 # 7. Main application (coordinates all modules)
 add_subdirectory(app)
+
 
 # Set the main application as the default startup project for IDEs
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT Invenesisapp)
@@ -69,3 +73,6 @@ message(STATUS "Qt Version: ${QT_VERSION}")
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Install Prefix: ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "===========================================")
+
+
+

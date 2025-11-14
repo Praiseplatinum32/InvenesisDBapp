@@ -89,6 +89,7 @@
    <addaction name="refreshTableButton"/>
    <addaction name="actionexportCsvButton"/>
    <addaction name="actionTecan"/>
+   <addaction name="actionUpdate"/>
   </widget>
   <action name="actionAdd">
    <property name="icon">
@@ -145,6 +146,21 @@
    </property>
    <property name="toolTip">
     <string>Open tecan view</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::NoRole</enum>
+   </property>
+  </action>
+  <action name="actionUpdate">
+   <property name="icon">
+    <iconset resource="../../resources.qrc">
+     <normaloff>:/icons/resources/icons/rechargement.png</normaloff>:/icons/resources/icons/rechargement.png</iconset>
+   </property>
+   <property name="text">
+    <string>Update</string>
+   </property>
+   <property name="toolTip">
+    <string>Update application</string>
    </property>
    <property name="menuRole">
     <enum>QAction::MenuRole::NoRole</enum>

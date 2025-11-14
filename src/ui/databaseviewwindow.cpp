@@ -11,9 +11,12 @@
 #include <QFileDialog>
 #include <QTextStream>
 #include <QStandardPaths>
+#include <QProcess>
+#include <QDesktopServices>
 
 #include "logindialog.h"
 #include "tecanwindow.h"
+#include "UpdateChecker.h"
 
 
 MainWindow::MainWindow(QWidget *parent)
@@ -127,6 +130,26 @@ MainWindow::MainWindow(QWidget *parent)
     // Ensure statistics update on row selection
     connect(ui->dataTableView->selectionModel(), &QItemSelectionModel::selectionChanged,
             this, &MainWindow::updateTableStatistics);
+
+
+    auto* checker = new UpdateChecker(this);
+    connect(checker, &UpdateChecker::updateAvailable, this,
+            [this](const QString& ver, const QString& notes, const QUrl& url){
+                if (ver.isEmpty()) {
+                    QMessageBox::information(this, "Updates", "You're up to date.");
+                    return;
+                }
+                const auto ret = QMessageBox::information(
+                    this, tr("Update Available"),
+                    tr("Version %1 is available.\n\n%2\n\nUpdate now?").arg(ver, notes),
+                    QMessageBox::Yes | QMessageBox::No);
+                if (ret == QMessageBox::Yes) {
+                    // Preferred (IFW): launch MaintenanceTool in updater mode if present
+                    QProcess::startDetached(QCoreApplication::applicationDirPath()+"/MaintenanceTool.exe", {"--updater"});
+                }
+            });
+    // Silent check on startup
+    checker->checkNow(false);
 }
 
 MainWindow::~MainWindow()
@@ -409,4 +432,12 @@ void MainWindow::on_actionTecan_triggered()
     tecanWindow->show();
 }
 
+
+
+void MainWindow::on_actionUpdate_triggered()
+{
+    qInfo() << "Button pressed";
+    UpdateChecker checker;
+    checker.checkNow(true);
+}
 

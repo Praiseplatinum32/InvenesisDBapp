@@ -19,12 +19,14 @@ target_link_libraries(ui
         Qt${QT_VERSION_MAJOR}::Widgets
         Qt${QT_VERSION_MAJOR}::Core
         Qt${QT_VERSION_MAJOR}::Sql
+        Qt${QT_VERSION_MAJOR}::Network
     PRIVATE
         database
         common
         authentication
         tecan_integration
         plate_management
+        update_management
 )
 
 # Include directories

@@ -6,6 +6,7 @@ add_executable(Invenesisapp
     ../resources.qrc
 )
 
+
 # Link all required modules
 target_link_libraries(Invenesisapp
     PRIVATE
@@ -30,3 +31,9 @@ set_target_properties(Invenesisapp PROPERTIES
     WIN32_EXECUTABLE TRUE
     MACOSX_BUNDLE TRUE
 )
+
+#set app version
+set(APP_VERSION "1.0.0")
+add_definitions(-DAPP_VERSION=\"${APP_VERSION}\")
+set(APP_ICON_RESOURCE_WINDOWS "${CMAKE_CURRENT_SOURCE_DIR}/appicon.rc")
+target_sources(${PROJECT_NAME} PRIVATE ${APP_ICON_RESOURCE_WINDOWS})
