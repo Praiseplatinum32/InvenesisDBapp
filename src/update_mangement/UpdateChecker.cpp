@@ -18,7 +18,7 @@ void UpdateChecker::checkNow(bool showNoUpdatesDialog) {
     const QUrl url(QStringLiteral("https://YOUR_UPDATE_HOST/version.json"));
     QNetworkRequest req(url);
     auto* reply = nam_.get(req);
-    connect(reply, &QNetworkReply::finished, this, [=](){
+    connect(reply, &QNetworkReply::finished, this, [=, this](){
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {
             if (showNoUpdatesDialog) emit updateAvailable(QString(), QString("Network error"), QUrl());
