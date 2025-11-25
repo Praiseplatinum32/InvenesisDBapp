@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
 
     a.setWindowIcon(QIcon(":/icons/resources/icons/Sphere.png"));
 
-    if (!Database::connect("localhost", 5432, "invenesis_db", "postgres", "DmEr2861995!!!!")) {
+    if (!Database::connect("10.0.0.19", 5432, "invenesisdb", "maxime", "NewStrongPassword123!")) {
         return -1;
     }
 
