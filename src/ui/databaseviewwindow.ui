@@ -90,6 +90,7 @@
    <addaction name="actionexportCsvButton"/>
    <addaction name="actionTecan"/>
    <addaction name="actionUpdate"/>
+   <addaction name="actionAdminResetPassword"/>
   </widget>
   <action name="actionAdd">
    <property name="icon">
@@ -161,6 +162,17 @@
    </property>
    <property name="toolTip">
     <string>Update application</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::NoRole</enum>
+   </property>
+  </action>
+  <action name="actionAdminResetPassword">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::ContactNew"/>
+   </property>
+   <property name="text">
+    <string>Reset user passwor</string>
    </property>
    <property name="menuRole">
     <enum>QAction::MenuRole::NoRole</enum>

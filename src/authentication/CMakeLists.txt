@@ -23,6 +23,8 @@ add_library(authentication STATIC
     ${AUTHENTICATION_SOURCES}
     ${AUTHENTICATION_HEADERS}
     ${AUTHENTICATION_FORMS}
+    adminresetpassworddialog.h adminresetpassworddialog.cpp adminresetpassworddialog.ui
+
 )
 
 # Link dependencies

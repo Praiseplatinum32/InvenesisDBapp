@@ -14,13 +14,10 @@ int main(int argc, char *argv[]) {
 
     a.setWindowIcon(QIcon(":/icons/resources/icons/Sphere.png"));
 
-    if (!Database::connect("10.0.0.19", 5432, "invenesisdb", "maxime", "NewStrongPassword123!")) {
+    if (!Database::connect("10.0.0.19", 5432, "invenesisdb", "invenesis_app", "JoKRNegUsUFeaLwH5i")) {
         return -1;
     }
 
-    // if (!Database::connect("db.dwycqohuigokorflerwd.supabase.co", 5432, "postgres", "postgres", "PMN0VhUxfaThDDHB45")) {
-    //     return -1;
-    // }
     MainWindow w;
     w.show();
     return a.exec();

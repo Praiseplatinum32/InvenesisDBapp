@@ -15,6 +15,7 @@
 #include <QDesktopServices>
 
 #include "logindialog.h"
+#include "adminresetpassworddialog.h"
 #include "tecanwindow.h"
 #include "UpdateChecker.h"
 
@@ -24,6 +25,13 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    //Admin-only action: hidden/disabled by default
+    if (ui->actionAdminResetPassword) {
+        ui->actionAdminResetPassword->setVisible(false);
+        ui->actionAdminResetPassword->setEnabled(false);
+    }
+
     showMaximized();
     setCentralWidget(ui->splitter);
     setWindowTitle("Invenesis Database Manager");
@@ -120,7 +128,6 @@ MainWindow::MainWindow(QWidget *parent)
     }
 
     // Set up tree view based on user role
-    setupTreeView();
 
     // Timer for automatic data refresh
     refreshTimer = new QTimer(this);
@@ -277,10 +284,31 @@ void MainWindow::setUserRole(const QString &role)
 {
     currentUserRole = role;
     qDebug() << "User logged in as:" << currentUserRole;
+    bool isAdmin = (currentUserRole == "admin");
+    if (ui->actionAdminResetPassword) {
+        ui->actionAdminResetPassword->setVisible(isAdmin);
+        ui->actionAdminResetPassword->setEnabled(isAdmin);
+    }
 
     // ✅ Rebuild the tree view to apply role-based restrictions
     setupTreeView();
 }
+
+
+void MainWindow::on_actionAdminResetPassword_triggered()
+{
+    // Extra safety check (in case someone changes visibility logic later)
+    if (currentUserRole != "admin") {
+        QMessageBox::warning(this, "Permission denied",
+                             "Only administrators can reset user passwords.");
+        return;
+    }
+
+    AdminResetPasswordDialog dlg(this);
+
+    dlg.exec();   // The dialog will handle the DB update & messages
+}
+
 
 void MainWindow::setupTreeView()
 {

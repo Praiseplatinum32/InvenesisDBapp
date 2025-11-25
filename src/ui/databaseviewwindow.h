@@ -52,6 +52,7 @@ private slots:
     void on_actionTecan_triggered();
     void updateFilterCriteria(); // ✅ Slot for handling dual-column filtering changes
     void on_actionUpdate_triggered();
+    void on_actionAdminResetPassword_triggered();
 };
 
 #endif // DATABASEVIEWWINDOW_H
