@@ -50,10 +50,10 @@ QString PlateMapDialog::roleToString(PlateWidget::WellType t)
 PlateWidget::WellType PlateMapDialog::roleFromString(const QString& s)
 {
     const QString t = s.trimmed().toLower();
-    if (t == "sample")   return PlateWidget::Sample;
-    if (t == "standard") return PlateWidget::Standard;
-    if (t == "dmso")     return PlateWidget::DMSO;
-    if (t == "void" || t.isEmpty()) return PlateWidget::None;
+    if (t == "sample")                  return PlateWidget::Sample;
+    if (t == "standard")                return PlateWidget::Standard;
+    if (t == "dmso" || t == "placebo")  return PlateWidget::DMSO;
+    if (t == "void" || t.isEmpty())     return PlateWidget::None;
 
     // Backward-compatibility fallbacks for odd tokens
     if (t == "samples" || t == "sample_id") return PlateWidget::Sample;
@@ -271,8 +271,20 @@ QVector<PlateWidget::WellData>
 readPlateCSV_NewSchema(QTextStream& ts, int rows, int cols)
 {
     QVector<PlateWidget::WellData> data(rows * cols);
-    const QString header = ts.readLine();
-    if (header.isNull()) return {};
+
+    // Find the header line that contains "layoutWell"
+    QString header;
+    while (!ts.atEnd()) {
+        header = ts.readLine();
+        if (header.isNull()) return {};
+        if (header.trimmed().isEmpty()) continue;
+        // look for the "layoutWell" token (case-insensitive)
+        if (header.toLower().contains("layoutwell"))
+            break;
+    }
+
+    if (header.isNull() || header.trimmed().isEmpty())
+        return {};
 
     const QStringList headCols = header.split(',', Qt::KeepEmptyParts);
     QMap<QString,int> h;
