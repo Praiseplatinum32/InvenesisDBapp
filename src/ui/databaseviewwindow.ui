@@ -74,7 +74,6 @@
     </widget>
    </widget>
   </widget>
-  <widget class="QStatusBar" name="statusbar"/>
   <widget class="QToolBar" name="toolBar">
    <property name="windowTitle">
     <string>toolBar</string>
@@ -92,13 +91,35 @@
    <addaction name="actionUpdate"/>
    <addaction name="actionAdminResetPassword"/>
   </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>982</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuActions">
+    <property name="title">
+     <string>Actions</string>
+    </property>
+    <addaction name="actionAdd"/>
+    <addaction name="refreshTableButton"/>
+    <addaction name="actionexportCsvButton"/>
+    <addaction name="actionTecan"/>
+    <addaction name="actionUpdate"/>
+   </widget>
+   <addaction name="menuActions"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
   <action name="actionAdd">
    <property name="icon">
     <iconset resource="../../resources.qrc">
      <normaloff>:/icons/resources/icons/ajouter.png</normaloff>:/icons/resources/icons/ajouter.png</iconset>
    </property>
    <property name="text">
-    <string>Add</string>
+    <string>Add Item</string>
    </property>
    <property name="toolTip">
     <string>Add data to table</string>
@@ -113,7 +134,7 @@
      <normaloff>:/icons/resources/icons/rafraichir.png</normaloff>:/icons/resources/icons/rafraichir.png</iconset>
    </property>
    <property name="text">
-    <string>refreshTableButton</string>
+    <string>Refresh database</string>
    </property>
    <property name="toolTip">
     <string>Refresh Table</string>
@@ -128,7 +149,7 @@
      <normaloff>:/icons/resources/icons/telecharger.png</normaloff>:/icons/resources/icons/telecharger.png</iconset>
    </property>
    <property name="text">
-    <string>exportCsvButton</string>
+    <string>Export selection to CSV</string>
    </property>
    <property name="toolTip">
     <string>Export to CSV</string>
@@ -143,7 +164,7 @@
      <normaloff>:/icons/resources/icons/tecan.png</normaloff>:/icons/resources/icons/tecan.png</iconset>
    </property>
    <property name="text">
-    <string>Tecan</string>
+    <string>Open Tecan window</string>
    </property>
    <property name="toolTip">
     <string>Open tecan view</string>
@@ -158,7 +179,7 @@
      <normaloff>:/icons/resources/icons/rechargement.png</normaloff>:/icons/resources/icons/rechargement.png</iconset>
    </property>
    <property name="text">
-    <string>Update</string>
+    <string>Update application</string>
    </property>
    <property name="toolTip">
     <string>Update application</string>
@@ -172,7 +193,7 @@
     <iconset theme="QIcon::ThemeIcon::ContactNew"/>
    </property>
    <property name="text">
-    <string>Reset user passwor</string>
+    <string>Reset user password</string>
    </property>
    <property name="menuRole">
     <enum>QAction::MenuRole::NoRole</enum>
