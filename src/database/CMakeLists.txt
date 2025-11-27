@@ -16,6 +16,8 @@ set(DATABASE_HEADERS
 add_library(database STATIC
     ${DATABASE_SOURCES}
     ${DATABASE_HEADERS}
+    DbConfig.h
+    DbConfig.cpp
 )
 
 # Link required Qt libraries and dependencies
