@@ -28,7 +28,7 @@ Component.prototype.createOperations = function()
 
     component.addOperation("EnvironmentVariable",
                            "INV_DB_HOST",
-                           "10.0.0.19",
+                           "10.0.30.12",
                            "true");
 
     component.addOperation("EnvironmentVariable",
