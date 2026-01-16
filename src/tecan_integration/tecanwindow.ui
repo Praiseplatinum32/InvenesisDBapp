@@ -68,7 +68,17 @@
        <item>
         <widget class="QPushButton" name="clearPlatesButton">
          <property name="text">
-          <string>PushButton</string>
+          <string>Clear plate</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="switchPlate">
+         <property name="text">
+          <string>Switch plate type</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -83,7 +93,7 @@
             <x>0</x>
             <y>0</y>
             <width>468</width>
-            <height>107</height>
+            <height>77</height>
            </rect>
           </property>
          </widget>

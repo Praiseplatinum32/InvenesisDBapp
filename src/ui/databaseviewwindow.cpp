@@ -13,6 +13,7 @@
 #include <QStandardPaths>
 #include <QProcess>
 #include <QDesktopServices>
+#include <QCheckBox>
 
 #include "logindialog.h"
 #include "adminresetpassworddialog.h"
@@ -74,6 +75,15 @@ MainWindow::MainWindow(QWidget *parent)
     ui->searchLineEdit_2->addAction(clearAction2, QLineEdit::TrailingPosition);
     connect(clearAction2, &QAction::triggered, ui->searchLineEdit_2, &QLineEdit::clear);
 
+    // ✅  setup the hide done checkbox
+    hideDoneCheckBox = new QCheckBox("Hide done", this);
+    hideDoneCheckBox->setVisible(true);                  // only for test_requests
+    ui->statusbar->addPermanentWidget(hideDoneCheckBox);  // right side of status bar
+    connect(hideDoneCheckBox, &QCheckBox::toggled, this, [this](bool checked){
+        proxyModel->setHideDone(checked);
+    });
+
+
     // Initialize CustomProxyModel for dual-column filtering
     proxyModel = new CustomProxyModel(this);
     proxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
@@ -132,7 +142,8 @@ MainWindow::MainWindow(QWidget *parent)
     // Timer for automatic data refresh
     refreshTimer = new QTimer(this);
     connect(refreshTimer, &QTimer::timeout, this, &MainWindow::autoRefreshTableView);
-    refreshTimer->start(5000);
+    constexpr int kAutoRefreshMs = 60000 * 5; // 1 min * 5
+    refreshTimer->start(kAutoRefreshMs);
 
     // Ensure statistics update on row selection
     connect(ui->dataTableView->selectionModel(), &QItemSelectionModel::selectionChanged,
@@ -173,6 +184,7 @@ void MainWindow::onTableSelected(const QItemSelection &selected, const QItemSele
 
     qDebug() << "Switching to table:" << tableName;
 
+
     currentTableModel = std::make_unique<QSqlTableModel>(this);
     currentTableModel->setTable(tableName);
     currentTableModel->select();
@@ -181,6 +193,18 @@ void MainWindow::onTableSelected(const QItemSelection &selected, const QItemSele
     proxyModel->setSourceModel(currentTableModel.get());
     ui->dataTableView->setModel(proxyModel);
     ui->dataTableView->setSelectionModel(new QItemSelectionModel(proxyModel));
+
+    if (tableName == "test_requests") {
+        hideDoneCheckBox->setVisible(true);
+
+        int doneCol = currentTableModel->fieldIndex("done"); // -1 if not found
+        proxyModel->setDoneColumn(doneCol);
+        proxyModel->setHideDone(hideDoneCheckBox->isChecked());
+    } else {
+        hideDoneCheckBox->setVisible(false);
+        proxyModel->setHideDone(false);
+        proxyModel->setDoneColumn(-1);
+    }
 
     // Populate first combo box
     ui->columnComboBox->clear();
@@ -230,7 +254,8 @@ void MainWindow::refreshTableView()
     if (!currentTableModel) return;
 
     currentTableModel->select();  //Refresh the table model
-    ui->dataTableView->setModel(currentTableModel.get());
+    ui->dataTableView->setModel(proxyModel);
+
     ui->dataTableView->resizeColumnsToContents();
 
     //Ensure the last column stretches to fill available space
@@ -263,7 +288,8 @@ void MainWindow::autoRefreshTableView()
     int newRowCount = currentTableModel->rowCount();
 
     if (previousRowCount != newRowCount) {
-        ui->dataTableView->setModel(currentTableModel.get());
+        ui->dataTableView->setModel(proxyModel);
+
         ui->dataTableView->resizeColumnsToContents();
         ui->dataTableView->horizontalHeader()->setStretchLastSection(true);
 

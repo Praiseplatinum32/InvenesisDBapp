@@ -61,7 +61,7 @@ static QByteArray jBytes(const QJsonValue &v)
 /* forward decl */
 static QJsonValue canonJson(const QJsonValue &v);
 
-/* ----- key‑sorted object -------------------------------------------- */
+/* ----- key-sorted object -------------------------------------------- */
 static QJsonObject canonObject(const QJsonObject &in)
 {
     QJsonObject out;
@@ -110,7 +110,7 @@ static QJsonObject canonicalise(const QJsonObject &obj)
     return canonObject(obj);
 }
 
-/* deep equality, ignoring order & numeric‑string mismatch */
+/* deep equality, ignoring order & numeric-string mismatch */
 static bool jsonEqual(const QJsonValue &a, const QJsonValue &b)
 {
     const QJsonValue ca = canonJson(a), cb = canonJson(b);
@@ -125,20 +125,12 @@ static bool jsonEqual(const QJsonValue &a, const QJsonValue &b)
     return jBytes(ca) == jBytes(cb);
 }
 
-
-
-
-
 using SqlModelUPtr = std::unique_ptr<QSqlQueryModel>;
 
-
-
-namespace                       /* ====== file‑local helpers / constants ====== */
+namespace                       /* ====== file-local helpers / constants ====== */
 {
 static constexpr int  kMaxColumns    = 12;
 static const QStringList kPlateRows  = {"A","B","C","D","E","F","G","H"};
-
-
 } // unnamed namespace
 
 /* ======= static QMessageBox wrappers (header declared) ======= */
@@ -185,12 +177,17 @@ TecanWindow::TecanWindow(QWidget *parent)
     ui->daughterPlateScrollArea->setWidgetResizable(true);
     ui->daughterPlateScrollArea->setAlignment(Qt::AlignTop | Qt::AlignHCenter);
     ui->daughterPlateScrollArea->setWidget(daughterPlatesContainerWidget);
+
+    // Ensure default plate type and button sync
+    m_daughterPlateType = DaughterPlateType::Plate96;
+    if (ui->switchPlate)
+        ui->switchPlate->setChecked(false);
 }
 
 TecanWindow::~TecanWindow()                                          = default;
 
 /* ========================================================================== */
-/*                         test‑request / solution logic                      */
+/*                         test-request / solution logic                      */
 /* ========================================================================== */
 void TecanWindow::loadTestRequests(const QStringList &requestIDs)
 {
@@ -309,7 +306,8 @@ void TecanWindow::populateCompoundTable(const QList<int> &solutionIds)
 
     const QString queryStr = QStringLiteral(R"(
         SELECT product_name, invenesis_solution_id, weight, weight_unit,
-               concentration, concentration_unit, container_id, well_id, matrix_tube_id
+               concentration, concentration_unit, container_id, well_id,
+               matrix_tube_id
         FROM   solutions
         WHERE  solution_id IN (%1))").arg(idPlaceholders.join(','));
 
@@ -331,23 +329,58 @@ void TecanWindow::populateCompoundTable(const QList<int> &solutionIds)
     matrixPlateContainer->populatePlates(plateData);
 
     /* ---------- prepare daughter plates ---------- */
-    QStringList compounds;
-    for (int i = 0, rows = compoundQueryModel->rowCount(); i < rows; ++i)
-        compounds.removeDuplicates(),
-            compounds << compoundQueryModel->record(i)
-                             .value("product_name").toString();
+    // Reset to 96-well whenever we freshly load from DB
+    m_daughterPlateType = DaughterPlateType::Plate96;
+    if (ui->switchPlate)
+        ui->switchPlate->setChecked(false);
 
-    const int  dilutionSteps =
-        testRequestModel->record(0).value("number_of_dilutions").toInt();
-    const QString testType =
-        testRequestModel->record(0).value("requested_tests").toString();
-
-    populateDaughterPlates(dilutionSteps, compounds, testType);
+    rebuildDaughterPlatesFromModels();
 }
 
 /* ========================================================================== */
 /*                                plate logic                                 */
 /* ========================================================================== */
+
+void TecanWindow::rebuildDaughterPlatesFromModels()
+{
+    const QAbstractItemModel *trModel  = ui->testRequestTableView->model();
+    const QAbstractItemModel *cmpModel = ui->compoundQueryTableView->model();
+
+    if (!trModel || trModel->rowCount() == 0 ||
+        !cmpModel || cmpModel->rowCount() == 0) {
+        return; // nothing loaded
+    }
+
+    auto columnOf = [](const QAbstractItemModel *m, const QString &hdr) -> int {
+        if (!m) return -1;
+        for (int c = 0; c < m->columnCount(); ++c)
+            if (m->headerData(c, Qt::Horizontal).toString() == hdr)
+                return c;
+        return -1;
+    };
+
+    const int productCol   = columnOf(cmpModel, "product_name");
+    const int nDilCol      = columnOf(trModel, "number_of_dilutions");
+    const int testTypeCol  = columnOf(trModel, "requested_tests");
+
+    if (productCol < 0) return;
+
+    QStringList compounds;
+    for (int r = 0; r < cmpModel->rowCount(); ++r) {
+        const QString name = cmpModel->index(r, productCol).data().toString();
+        if (!name.isEmpty() && !compounds.contains(name))
+            compounds << name;
+    }
+
+    const int dilutionSteps =
+        (nDilCol >= 0) ? trModel->index(0, nDilCol).data().toInt() : 3;
+    const QString testType =
+        (testTypeCol >= 0) ? trModel->index(0, testTypeCol).data().toString()
+                           : QString();
+
+    populateDaughterPlates(dilutionSteps, compounds, testType);
+}
+
 void TecanWindow::populateDaughterPlates(int dilutionSteps,
                                          const QStringList &compoundList,
                                          const QString &testType)
@@ -358,35 +391,62 @@ void TecanWindow::populateDaughterPlates(int dilutionSteps,
         delete item;
     }
 
-    /* ---- determine special (INV‑T‑031) layout? ---- */
-    const bool isINV_T_031  = testType.contains(QLatin1String("INV-T-031"));
-    const int  standardCol  = isINV_T_031 ? 11 : -1;
-    const int  dmsoCol      = isINV_T_031 ? 12 : -1;
+    // plate geometry (daughter plate)
+    const bool is384 =
+        (m_daughterPlateType == DaughterPlateType::Plate384);
 
-    /* ---- build list of fixed wells ---- */
+    const QStringList plateRows = is384
+                                      ? QStringList{"A","B","C","D","E","F","G","H",
+                                                    "I","J","K","L","M","N","O","P"}  // 16 rows
+                                      : QStringList{"A","B","C","D","E","F","G","H"}; // 8 rows
+
+    const int maxColumns = is384 ? 24 : 12;
+
+    // INV-T-031 special layout only defined/active for 96-well plates
+    const bool isINV_T_031 =
+        testType.contains(QLatin1String("INV-T-031"), Qt::CaseInsensitive)
+        && !is384;
+
+    const int standardCol = isINV_T_031 ? (maxColumns - 1) : -1; // 11 for 96
+    const int dmsoCol     = isINV_T_031 ?  maxColumns      : -1; // 12 for 96
+
+    /* ---- build fixed Standard / DMSO wells ---- */
     QStringList standardWells, dmsoWells;
+
     if (isINV_T_031) {
-        for (const QString &row : kPlateRows) {
+        // Standards / DMSO in vertical columns (11 / 12)
+        for (const QString &row : plateRows) {
             standardWells << row + QString::number(standardCol);
             dmsoWells     << row + QString::number(dmsoCol);
         }
     } else {
-        const int stdDilutions = qMax(dilutionSteps, 6);
-        for (int c = 1; c <= stdDilutions; ++c) standardWells << "A" + QString::number(c);
-        for (int c = 1; c <= kMaxColumns; ++c)  dmsoWells     << "H" + QString::number(c);
+        // Regular layout: Standards in first row, DMSO in last row
+        const QString &stdRow  = plateRows.first();
+        const QString &dmsoRow = plateRows.last();
+        const int stdDil = qMax(dilutionSteps, 6);
+
+        for (int c = 1; c <= stdDil && c <= maxColumns; ++c)
+            standardWells << stdRow + QString::number(c);
+
+        for (int c = 1; c <= maxColumns; ++c)
+            dmsoWells << dmsoRow + QString::number(c);
     }
 
-    /* ---------------------------------------------------------------------- */
     QList<QMap<QString,QStringList>> plates(1);
     plates[0]["Standard"] = standardWells;
     plates[0]["DMSO"]     = dmsoWells;
 
-    int plateIdx   = 0;
-    int curRowIdx  = isINV_T_031 ? 0 : 1;     // skip row A if not special
-    int curColIdx  = 1;
+    int plateIdx  = 0;
+    int curRowIdx = isINV_T_031 ? 0 : 1;  // skip standard row on non-INV
+    int curColIdx = 1;
 
-    auto startNewPlate = [&]{
-        plates.append({{"Standard",standardWells}, {"DMSO",dmsoWells}});
+    const int rowsForCompounds = plateRows.size() - (isINV_T_031 ? 0 : 1);
+    const int maxColForCompd   = isINV_T_031 ? (standardCol - 1)
+                                           : maxColumns;
+
+    auto startNewPlate = [&]() {
+        plates.append({{"Standard", standardWells},
+                       {"DMSO",     dmsoWells}});
         ++plateIdx;
         curRowIdx = isINV_T_031 ? 0 : 1;
         curColIdx = 1;
@@ -395,31 +455,32 @@ void TecanWindow::populateDaughterPlates(int dilutionSteps,
     /* ---- place every compound, honouring dilution steps & reserved cols ---- */
     for (const QString &cmpd : compoundList)
     {
-        while (true)                              // find first valid region
-        {
+        while (true) {
             const int lastCol = curColIdx + dilutionSteps - 1;
             const bool overlapSpecial = isINV_T_031 && lastCol >= standardCol;
-            const bool exceedCols     = lastCol > (isINV_T_031 ? standardCol-1
-                                                           : kMaxColumns);
-            if (!overlapSpecial && !exceedCols) break;
+            const bool exceedCols     = lastCol > maxColForCompd;
 
-            if (++curRowIdx >= kPlateRows.size() - (isINV_T_031 ? 0 : 1))
+            if (!overlapSpecial && !exceedCols)
+                break;
+
+            if (++curRowIdx >= rowsForCompounds)
                 startNewPlate();
         }
 
         QStringList wells;
         for (int d = 0; d < dilutionSteps; ++d)
-            wells << kPlateRows[curRowIdx] + QString::number(curColIdx + d);
+            wells << plateRows[curRowIdx] + QString::number(curColIdx + d);
 
         plates[plateIdx][cmpd] = wells;
 
-        if (++curRowIdx >= kPlateRows.size() - (isINV_T_031 ? 0 : 1))
-        {
+        if (++curRowIdx >= rowsForCompounds) {
             curRowIdx = isINV_T_031 ? 0 : 1;
             curColIdx += dilutionSteps;
 
-            if (isINV_T_031 && curColIdx >= standardCol) curColIdx = 1;
-            if (curColIdx > (isINV_T_031 ? standardCol-1 : kMaxColumns))
+            if (isINV_T_031 && curColIdx >= standardCol)
+                curColIdx = 1;
+
+            if (curColIdx > maxColForCompd)
                 startNewPlate();
         }
     }
@@ -429,15 +490,25 @@ void TecanWindow::populateDaughterPlates(int dilutionSteps,
     {
         auto *plateWidget = new DaughterPlateWidget(i+1, this);
 
+        // 96 vs 384 for underlying PlateWidget
+        plateWidget->setPlateFormat(
+            is384 ? DaughterPlateWidget::Plate384
+                  : DaughterPlateWidget::Plate96);
+
         /* assign colours */
         QMap<QString,QColor> colours;
-        int hue = 0, hueStep = 360 / (plates[i].size() + 1);
+        int hue = 0;
+        const int hueStep = 360 / (plates[i].size() + 1);
+
         for (auto it = plates[i].cbegin(); it != plates[i].cend(); ++it) {
-            if (it.key() == "DMSO")      colours[it.key()] = Qt::gray;
+            if (it.key() == "DMSO")
+                colours[it.key()] = Qt::gray;
             else if (it.key() == "Standard")
                 colours[it.key()] = QColor(0,122,204);
-            else {                       colours[it.key()] = QColor::fromHsv(hue,200,220);
-                hue += hueStep; }
+            else {
+                colours[it.key()] = QColor::fromHsv(hue, 200, 220);
+                hue += hueStep;
+            }
         }
 
         plateWidget->populatePlate(plates[i], colours, dilutionSteps);
@@ -466,9 +537,18 @@ void TecanWindow::on_clearPlatesButton_clicked()
         }
 }
 
+void TecanWindow::on_switchPlate_toggled(bool checked)
+{
+    m_daughterPlateType = checked
+                              ? DaughterPlateType::Plate384
+                              : DaughterPlateType::Plate96;
+
+    rebuildDaughterPlatesFromModels();
+}
+
 /* =========================================================================
- *  Persistence, load/save & GWL helpers – refactored April 2025
- *  (drop‑in replacement for the second half of tecanwindow.cpp)
+ *  Persistence, load/save & GWL helpers – refactored April 2025
+ *  (drop-in replacement for the second half of tecanwindow.cpp)
  * ========================================================================= */
 
 /* ============================================================== */
@@ -681,6 +761,19 @@ void TecanWindow::loadDaughterPlatesFromJson(const QJsonArray &array,
         delete item;
     }
 
+    // restore plate type (root has priority, per-plate as fallback)
+    QString plateTypeStr = lastSavedExperimentJson.value("plate_type").toString();
+    if (plateTypeStr.isEmpty() && !array.isEmpty())
+        plateTypeStr = array.at(0).toObject().value("plate_type").toString();
+
+    if (plateTypeStr == "384")
+        m_daughterPlateType = DaughterPlateType::Plate384;
+    else
+        m_daughterPlateType = DaughterPlateType::Plate96;
+
+    if (ui->switchPlate)
+        ui->switchPlate->setChecked(m_daughterPlateType == DaughterPlateType::Plate384);
+
     /* extract standard info if available */
     QString stdLabel, stdNotes;
     const QJsonObject stdObj = lastSavedExperimentJson["standard"].toObject();
@@ -695,11 +788,17 @@ void TecanWindow::loadDaughterPlatesFromJson(const QJsonArray &array,
         stdNotes = QJsonDocument(stdObj).toJson(QJsonDocument::Indented);
     }
 
+    const bool is384 = (m_daughterPlateType == DaughterPlateType::Plate384);
+
     for (int i = 0; i < array.size(); ++i) {
         const QJsonObject plateObj = array[i].toObject();
         const int dilSteps = plateObj.value("dilution_steps").toInt(3);
 
         auto *plate = new DaughterPlateWidget(i+1, this);
+        plate->setPlateFormat(
+            is384 ? DaughterPlateWidget::Plate384
+                  : DaughterPlateWidget::Plate96);
+
         plate->fromJson(plateObj["wells"].toObject(), dilSteps);
 
         if (!readOnly) plate->enableCompoundDragDrop(dilSteps);
@@ -725,11 +824,11 @@ QJsonObject TecanWindow::buildCurrentExperimentJson(const QString &experimentCod
         !cmpModel || cmpModel->rowCount() == 0)
     {
         showError(this, tr("GWL Generation"),
-                  tr("Test‑request or compound table is empty."));
+                  tr("Test-request or compound table is empty."));
         return {};                                     // return an EMPTY object
     }
 
-    /* helper ‑ locate a column by its header text */
+    /* helper - locate a column by its header text */
     auto columnOf = [](const QAbstractItemModel *m, const QString &hdr) -> int
     {
         for (int c = 0; c < m->columnCount(); ++c)
@@ -749,6 +848,11 @@ QJsonObject TecanWindow::buildCurrentExperimentJson(const QString &experimentCod
     root["project_code"]    = (projCol >= 0)
                                ? trModel->index(0, projCol).data().toString()
                                : QString();
+
+    // NEW: persist daughter plate type
+    root["plate_type"] = (m_daughterPlateType == DaughterPlateType::Plate384)
+                             ? QStringLiteral("384")
+                             : QStringLiteral("96");
 
     /* -------------------------------------------------------------------
      * 3) serialise TEST REQUESTS
@@ -806,6 +910,7 @@ QJsonObject TecanWindow::buildCurrentExperimentJson(const QString &experimentCod
         QJsonObject plateObj;
         plateObj["plate_number"]   = i + 1;
         plateObj["dilution_steps"] = dilutionSteps;
+        plateObj["plate_type"]     = root["plate_type"];  // keep in sync
         plateObj["wells"]          = plate->toJson();
         dghtArray.append(plateObj);
     }
@@ -813,8 +918,6 @@ QJsonObject TecanWindow::buildCurrentExperimentJson(const QString &experimentCod
 
     return root;
 }
-
-
 
 // ==== small helpers (file-scope) =========================================
 static inline QString instrumentToString(GWLGenerator::Instrument ins) {
@@ -958,7 +1061,15 @@ void TecanWindow::generateGWLFromJson(const QJsonObject &experimentJson)
         return;
     }
 
-    // 9) Done
+    // 9) Mark related test requests as done
+    QString dbErr;
+    if (!markTestRequestsDoneFromJson(experimentJson, &dbErr)) {
+        // You can choose warning vs error. Warning is safer (GWL already generated).
+        showWarning(this, tr("Database Update"),
+                    tr("GWL was generated, but failed to mark test requests as done:\n%1").arg(dbErr));
+    }
+
+    // 11) Done
     showInfo(this, tr("Success"),
              tr("Files written to:\n%1").arg(outDir));
 }
@@ -1024,3 +1135,59 @@ void TecanWindow::on_actionCreate_Plate_Map_triggered()
     dlg.exec();
 }
 
+bool TecanWindow::markTestRequestsDoneFromJson(const QJsonObject &experimentJson, QString *errOut)
+{
+    const QJsonArray trArr = experimentJson.value("test_requests").toArray();
+    if (trArr.isEmpty()) return true; // nothing to do
+
+    // Collect unique request_ids
+    QSet<QString> idsSet;
+    for (const QJsonValue &v : trArr) {
+        const QString id = v.toObject().value("request_id").toString().trimmed();
+        if (!id.isEmpty()) idsSet.insert(id);
+    }
+    if (idsSet.isEmpty()) return true;
+
+    const QStringList ids = QStringList(idsSet.begin(), idsSet.end());
+
+    // Build placeholders :id0, :id1, ...
+    QStringList ph;
+    ph.reserve(ids.size());
+    for (int i = 0; i < ids.size(); ++i)
+        ph << QString(":id%1").arg(i);
+
+    QSqlDatabase db = QSqlDatabase::database();
+    if (!db.isValid() || !db.isOpen()) {
+        if (errOut) *errOut = "Database is not open.";
+        return false;
+    }
+
+    if (!db.transaction()) {
+        if (errOut) *errOut = "Failed to start DB transaction.";
+        return false;
+    }
+
+    QSqlQuery q(db);
+    q.prepare(QStringLiteral(
+                  "UPDATE test_requests "
+                  "SET done = TRUE "
+                  "WHERE request_id IN (%1)")
+                  .arg(ph.join(',')));
+
+    for (int i = 0; i < ids.size(); ++i)
+        q.bindValue(ph[i], ids[i]);
+
+    if (!q.exec()) {
+        db.rollback();
+        if (errOut) *errOut = q.lastError().text();
+        return false;
+    }
+
+    if (!db.commit()) {
+        db.rollback();
+        if (errOut) *errOut = "Failed to commit DB transaction.";
+        return false;
+    }
+
+    return true;
+}

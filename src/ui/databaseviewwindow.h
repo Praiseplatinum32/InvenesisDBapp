@@ -8,6 +8,7 @@
 #include <QLineEdit>
 #include <QTimer>
 #include <QLabel>
+#include <QCheckBox>
 
 #include "customproxymodel.h"
 
@@ -36,6 +37,7 @@ private:
     QLabel *rowCountLabel;    // Displays total row count
     QLabel *columnCountLabel; // Displays total column count
     QLabel *selectedRowCountLabel; // Displays selected row count
+    QCheckBox* hideDoneCheckBox = nullptr;
 
     void updateFilters(); // ✅ Helper function for dual filtering
 

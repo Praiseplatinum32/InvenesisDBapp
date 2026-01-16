@@ -13,8 +13,11 @@
 
 namespace { constexpr int kSpacingPx = 1; }
 
-/* static */ const QStringList DaughterPlateWidget::kRows =
+/* static */ const QStringList DaughterPlateWidget::kRows96 =
     {"A","B","C","D","E","F","G","H"};
+/* static */ const QStringList DaughterPlateWidget::kRows384 =
+    {"A","B","C","D","E","F","G","H",
+     "I","J","K","L","M","N","O","P"};
 
 /* ======================================================================== */
 /*                               constructor                                */
@@ -38,6 +41,8 @@ DaughterPlateWidget::DaughterPlateWidget(int plateNumber, QWidget *parent)
     plateLayout_->setSizeConstraint(QLayout::SetFixedSize);        // fixed grid
     mainLayout->addLayout(plateLayout_);
 
+    // Default format: 96-well
+    format_ = Plate96;
     setupEmptyPlate();
 
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);          // no stretch
@@ -49,12 +54,39 @@ DaughterPlateWidget::DaughterPlateWidget(int plateNumber, QWidget *parent)
 /* ======================================================================== */
 /*                           plate initialisation                           */
 /* ======================================================================== */
+
+const QStringList &DaughterPlateWidget::rowLabels() const
+{
+    return (format_ == Plate384) ? kRows384 : kRows96;
+}
+
+int DaughterPlateWidget::columnCount() const
+{
+    return (format_ == Plate384) ? kColumns384 : kColumns96;
+}
+
 void DaughterPlateWidget::setupEmptyPlate()
 {
-    for (int r = 0; r < kRows.size(); ++r)
-        for (int c = 1; c <= kColumns; ++c)
-        {
-            const QString wellId = kRows[r] + QString::number(c);
+    // Clear any previous content
+    clearDropPreview();
+    qDeleteAll(wellLabels_);
+    wellLabels_.clear();
+
+    if (!plateLayout_)
+        return;
+
+    while (QLayoutItem *item = plateLayout_->takeAt(0)) {
+        if (auto *w = item->widget())
+            w->deleteLater();
+        delete item;
+    }
+
+    const QStringList &rows = rowLabels();
+    const int cols          = columnCount();
+
+    for (int r = 0; r < rows.size(); ++r) {
+        for (int c = 1; c <= cols; ++c) {
+            const QString wellId = rows[r] + QString::number(c);
             auto *lbl = new QLabel(wellId, this);
             lbl->setFixedSize(kWellSizePx, kWellSizePx);
             lbl->setFrameStyle(QFrame::Box);
@@ -65,10 +97,25 @@ void DaughterPlateWidget::setupEmptyPlate()
             plateLayout_->addWidget(lbl, r, c-1);
             wellLabels_.insert(wellId, lbl);
         }
+    }
 }
 
 /* ======================================================================== */
-/*                          public‑facing helpers                           */
+/*                        format / geometry control                         */
+/* ======================================================================== */
+
+void DaughterPlateWidget::setPlateFormat(PlateFormat fmt)
+{
+    if (fmt == format_)
+        return;
+
+    format_ = fmt;
+    setupEmptyPlate();
+    adjustSize();
+}
+
+/* ======================================================================== */
+/*                          public-facing helpers                           */
 /* ======================================================================== */
 void DaughterPlateWidget::populatePlate(const CompoundMap &compoundWells,
                                         const ColorMap    &compoundColors,
@@ -102,7 +149,7 @@ void DaughterPlateWidget::populatePlate(const CompoundMap &compoundWells,
             if (compound == "DMSO")
                 shade = Qt::darkGray;
             else {
-                const qreal fade = 1.0 - (static_cast<qreal>(i) / dilutionSteps_);
+                const qreal fade = 1.0 - (static_cast<qreal>(i) / qMax(1, dilutionSteps_));
                 shade = base.lighter(100 + static_cast<int>((1 - fade) * 30));
             }
             lbl->setStyleSheet(QStringLiteral(
@@ -179,13 +226,15 @@ void DaughterPlateWidget::dropEvent(QDropEvent *e)
 
     const QChar rowLetter = startWell.at(0);
     const int   startCol  = startWell.mid(1).toInt();
+    const int   maxCols   = columnCount();
 
     QStringList targetWells;
     for (int i = 0; i < dilutionSteps_; ++i) {
         const int col = startCol + i;
-        if (col > kColumns) return;
+        if (col > maxCols) return;
 
         const QString well = rowLetter + QString::number(col);
+        if (!wellLabels_.contains(well)) return;
         if (!wellLabels_[well]->property("compound").toString().isEmpty())
             return;
         targetWells << well;
@@ -205,7 +254,7 @@ void DaughterPlateWidget::dropEvent(QDropEvent *e)
         lbl->setText(dispText);
         lbl->setFont(font);
 
-        const qreal fade = 1.0 - static_cast<qreal>(i) / dilutionSteps_;
+        const qreal fade = 1.0 - static_cast<qreal>(i) / qMax(1, dilutionSteps_);
         const QColor shade = base.lighter(100 + static_cast<int>((1 - fade) * 80));
         lbl->setStyleSheet(QStringLiteral(
                                "background-color:%1; border:1px solid black;").arg(shade.name()));
@@ -219,7 +268,9 @@ void DaughterPlateWidget::clearDropPreview()
 {
     for (const QString &well : std::as_const(previewWells_))
     {
-        auto *lbl = wellLabels_[well];
+        auto *lbl = wellLabels_.value(well, nullptr);
+        if (!lbl) continue;
+
         if (lbl->property("compound").toString().isEmpty())
             lbl->setStyleSheet(QStringLiteral(
                 "background-color:black; border:1px solid black;"));
@@ -236,16 +287,20 @@ void DaughterPlateWidget::showDropPreview(const QString &cmpd,
     previewWells_.clear();
     previewCompound_ = cmpd;
 
-    const int rowIdx   = kRows.indexOf(startWell.left(1));
-    const int startCol = startWell.mid(1).toInt();
+    const QStringList &rows = rowLabels();
+    const int cols          = columnCount();
+
+    const QString rowStr = startWell.left(1);
+    const int rowIdx     = rows.indexOf(rowStr);
+    const int startCol   = startWell.mid(1).toInt();
     if (rowIdx == -1) return;
 
     bool conflict = false;
     for (int i = 0; i < dilutionSteps_; ++i) {
         const int col = startCol + i;
-        const QString well = kRows[rowIdx] + QString::number(col);
+        const QString well = rows[rowIdx] + QString::number(col);
 
-        if (col > kColumns ||
+        if (col > cols ||
             !wellLabels_.contains(well) ||
             !wellLabels_[well]->property("compound").toString().isEmpty())
         {

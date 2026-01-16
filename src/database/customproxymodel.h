@@ -12,6 +12,9 @@ public:
     void setFilter1(const QString &text, int column);
     void setFilter2(const QString &text, int column);
 
+    void setHideDone(bool hide);
+    void setDoneColumn(int column);
+
 protected:
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override;
 
@@ -20,6 +23,8 @@ private:
     QString filterText2;
     int filterColumn1 = -1;
     int filterColumn2;
+    bool hideDone = false;
+    int doneColumn = -1;
 };
 
 #endif // CUSTOMPROXYMODEL_H

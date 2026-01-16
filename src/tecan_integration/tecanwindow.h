@@ -4,7 +4,7 @@
  *  @file tecanwindow.h
  *  @brief Main UI class driving the Tecan automation interface.
  *
- *  Refactored April 2025 – functionality preserved, structure & comments improved.
+ *  Refactored April 2025 – functionality preserved, structure & comments improved.
  */
 
 #include <QMainWindow>
@@ -22,7 +22,7 @@ namespace Ui { class TecanWindow; }
 
 /**
  * @class TecanWindow
- * @brief Main window controlling test‑request handling, plate layouts and GWL generation.
+ * @brief Main window controlling test-request handling, plate layouts and GWL generation.
  */
 class TecanWindow final : public QMainWindow
 {
@@ -41,14 +41,25 @@ private slots:
     void on_actionSave_triggered();
     void on_actionLoad_triggered();
     void on_actionGenerate_GWL_triggered();
-
     void on_actionCreate_Plate_Map_triggered();
+
+    /** Checkable button below "Clear" – unchecked: 96-well, checked: 384-well. */
+    void on_switchPlate_toggled(bool checked);
+
+    bool markTestRequestsDoneFromJson(const QJsonObject &experimentJson, QString *errOut = nullptr);
+
 
 private:            /* ---------- helper types ---------- */
     using SqlModelPtr = std::unique_ptr<QSqlQueryModel>;
 
+    /// Current daughter-plate format (affects rows/cols & layout algorithm).
+    enum class DaughterPlateType {
+        Plate96,
+        Plate384
+    };
+
 private:            /* ---------- helper GUI ----------
-                       (all raw‑pointers are Qt‑owned)   */
+                       (all raw-pointers are Qt-owned)   */
     Ui::TecanWindow       *ui = nullptr;
     SqlModelPtr            testRequestModel;
     SqlModelPtr            compoundQueryModel;
@@ -59,6 +70,7 @@ private:            /* ---------- helper GUI ----------
 
     /* ---------- cached state ---------- */
     QJsonObject            lastSavedExperimentJson;
+    DaughterPlateType      m_daughterPlateType { DaughterPlateType::Plate96 };
 
 private:            /* ---------- query helpers ---------- */
     void querySolutionsFromTestRequests();
@@ -71,6 +83,9 @@ private:            /* ---------- plate helpers ---------- */
     void populateDaughterPlates(int dilutionSteps,
                                 const QStringList& compoundList,
                                 const QString& testType);
+
+    /// Rebuild daughter plates from whatever models are currently shown in the UI.
+    void rebuildDaughterPlatesFromModels();
 
     /* ------ JSON (de)serialisation helpers ------ */
     void loadTestRequestsFromJson(const QJsonArray &array);
