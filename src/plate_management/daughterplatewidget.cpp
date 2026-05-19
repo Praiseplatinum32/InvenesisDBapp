@@ -65,6 +65,11 @@ int DaughterPlateWidget::columnCount() const
     return (format_ == Plate384) ? kColumns384 : kColumns96;
 }
 
+int DaughterPlateWidget::getWellSize() const
+{
+    return (format_ == Plate384) ? 20 : 40;
+}
+
 void DaughterPlateWidget::setupEmptyPlate()
 {
     // Clear any previous content
@@ -86,9 +91,10 @@ void DaughterPlateWidget::setupEmptyPlate()
 
     for (int r = 0; r < rows.size(); ++r) {
         for (int c = 1; c <= cols; ++c) {
-            const QString wellId = rows[r] + QString::number(c);
+            const QString wellId = rows[r] + QString::number(c).rightJustified(2, '0');
             auto *lbl = new QLabel(wellId, this);
-            lbl->setFixedSize(kWellSizePx, kWellSizePx);
+            const int sz = getWellSize();
+            lbl->setFixedSize(sz, sz);
             lbl->setFrameStyle(QFrame::Box);
             lbl->setAlignment(Qt::AlignCenter);
             lbl->setStyleSheet(QStringLiteral(
@@ -123,7 +129,7 @@ void DaughterPlateWidget::populatePlate(const CompoundMap &compoundWells,
 {
     dilutionSteps_ = dilutionSteps;
 
-    QFont font; font.setPointSize(7);
+    QFont font; font.setPointSize(format_ == Plate384 ? 5 : 7);
 
     for (auto it = compoundWells.cbegin(); it != compoundWells.cend(); ++it)
     {
@@ -161,7 +167,7 @@ void DaughterPlateWidget::populatePlate(const CompoundMap &compoundWells,
 
 void DaughterPlateWidget::clearCompounds()
 {
-    QFont font; font.setPointSize(7);
+    QFont font; font.setPointSize(format_ == Plate384 ? 5 : 7);
 
     for (auto it = wellLabels_.begin(); it != wellLabels_.end(); ++it)
     {
@@ -233,7 +239,7 @@ void DaughterPlateWidget::dropEvent(QDropEvent *e)
         const int col = startCol + i;
         if (col > maxCols) return;
 
-        const QString well = rowLetter + QString::number(col);
+        const QString well = rowLetter + QString::number(col).rightJustified(2, '0');
         if (!wellLabels_.contains(well)) return;
         if (!wellLabels_[well]->property("compound").toString().isEmpty())
             return;
@@ -243,7 +249,7 @@ void DaughterPlateWidget::dropEvent(QDropEvent *e)
     const QColor base = QColor::fromHsv(
         QRandomGenerator::global()->bounded(360), 200, 220);
 
-    QFont font; font.setPointSize(7);
+    QFont font; font.setPointSize(format_ == Plate384 ? 5 : 7);
     const QString dispText = compound.length() > 10 && compound.contains('-')
                                  ? QString(compound).replace('-', "-\n")
                                  : compound;
@@ -298,7 +304,7 @@ void DaughterPlateWidget::showDropPreview(const QString &cmpd,
     bool conflict = false;
     for (int i = 0; i < dilutionSteps_; ++i) {
         const int col = startCol + i;
-        const QString well = rows[rowIdx] + QString::number(col);
+        const QString well = rows[rowIdx] + QString::number(col).rightJustified(2, '0');
 
         if (col > cols ||
             !wellLabels_.contains(well) ||
@@ -336,8 +342,13 @@ void DaughterPlateWidget::fromJson(const QJsonObject &json, int dilutionSteps)
     dilutionSteps_ = dilutionSteps;
 
     CompoundMap cmpdWells;
-    for (auto it = json.constBegin(); it != json.constEnd(); ++it)
-        cmpdWells[it.value().toString()].append(it.key());
+    for (auto it = json.constBegin(); it != json.constEnd(); ++it) {
+        QString well = it.key();
+        if (well.size() >= 2) {
+            well = well.at(0).toUpper() + QString::number(well.mid(1).toInt()).rightJustified(2, '0');
+        }
+        cmpdWells[it.value().toString()].append(well);
+    }
 
     ColorMap cmpdColors;
     int hue = 0, step = 360 / (cmpdWells.size() + 1);

@@ -4,11 +4,10 @@
 #include <QtSql/QSqlDatabase>
 #include <QtSql/QSqlError>
 #include <QtSql/QSqlTableModel>
-#include <QMessageBox>
 
 class Database {
 public:
-    static bool connect(const QString &host, int port, const QString &dbName, const QString &user, const QString &password) {
+    static bool connect(const QString &host, int port, const QString &dbName, const QString &user, const QString &password, QString* errOut = nullptr) {
         QSqlDatabase db = QSqlDatabase::addDatabase("QPSQL");
         db.setHostName(host);
         db.setPort(port);
@@ -17,7 +16,7 @@ public:
         db.setPassword(password);
 
         if (!db.open()) {
-            QMessageBox::critical(nullptr, "Database Error", db.lastError().text());
+            if (errOut) *errOut = db.lastError().text();
             return false;
         }
         return true;

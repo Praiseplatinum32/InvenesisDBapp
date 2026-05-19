@@ -9,10 +9,12 @@
 #include <QTimer>
 #include <QLabel>
 #include <QCheckBox>
+#include <QStackedWidget>
 
 #include "customproxymodel.h"
+#include "MainWindowViewModel.h"
 
-
+class TecanWindow;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -30,14 +32,16 @@ public:
 
 private:
     Ui::MainWindow *ui;
-    std::unique_ptr<QSqlTableModel> currentTableModel;
-    CustomProxyModel *proxyModel;  // ✅ Corrected proxy model type
-    QString currentUserRole;  // Store the logged-in user's role
+    std::unique_ptr<MainWindowViewModel> viewModel;
+    
     QTimer* refreshTimer;     // Timer to refresh data periodically
     QLabel *rowCountLabel;    // Displays total row count
     QLabel *columnCountLabel; // Displays total column count
     QLabel *selectedRowCountLabel; // Displays selected row count
     QCheckBox* hideDoneCheckBox = nullptr;
+
+    QStackedWidget* mainStackedWidget = nullptr;
+    TecanWindow* tecanView = nullptr;
 
     void updateFilters(); // ✅ Helper function for dual filtering
 

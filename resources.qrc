@@ -1,3 +1,4 @@
+<?xml version='1.0' encoding='UTF-8'?>
 <RCC>
     <qresource prefix="/icons">
         <file>resources/icons/visible.png</file>
@@ -19,8 +20,12 @@
     <qresource prefix="/data">
         <file>resources/data/standards_matrix.json</file>
         <file>resources/data/volumeMap.json</file>
-    </qresource>
+        <file>resources/data/invenesis_catalogue.json</file>
+    <file>resources/data/tests_vocabulary.json</file><file>resources/data/qc_plates.json</file></qresource>
     <qresource prefix="/cert">
         <file>resources/cert/prod-ca-2021.crt</file>
+    </qresource>
+    <qresource prefix="/styles">
+        <file>resources/style.qss</file>
     </qresource>
 </RCC>

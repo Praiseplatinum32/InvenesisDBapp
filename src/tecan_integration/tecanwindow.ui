@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <ui version="4.0">
  <class>TecanWindow</class>
- <widget class="QMainWindow" name="TecanWindow">
+ <widget class="QWidget" name="TecanWindow">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -34,8 +34,8 @@
       <property name="orientation">
        <enum>Qt::Orientation::Horizontal</enum>
       </property>
-      <widget class="QTableView" name="testRequestTableView"/>
-      <widget class="DraggableTableView" name="compoundQueryTableView"/>
+      <widget class="QTableView" name="testRequestTableView" />
+      <widget class="DraggableTableView" name="compoundQueryTableView" />
      </widget>
     </widget>
     <widget class="QSplitter" name="splitter_1">
@@ -83,48 +83,12 @@
         </widget>
        </item>
        <item>
-        <widget class="QScrollArea" name="daughterPlateScrollArea">
-         <property name="widgetResizable">
-          <bool>true</bool>
-         </property>
-         <widget class="QWidget" name="scrollAreaWidgetContents_2">
-          <property name="geometry">
-           <rect>
-            <x>0</x>
-            <y>0</y>
-            <width>468</width>
-            <height>77</height>
-           </rect>
-          </property>
-         </widget>
-        </widget>
-       </item>
+        <widget class="QTabWidget" name="platesTabWidget" /></item>
       </layout>
      </widget>
     </widget>
    </widget>
   </widget>
-  <widget class="QMenuBar" name="menubar">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>928</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <widget class="QMenu" name="menuActions">
-    <property name="title">
-     <string>Actions</string>
-    </property>
-    <addaction name="actionSave"/>
-    <addaction name="actionLoad"/>
-    <addaction name="actionGenerate_GWL"/>
-    <addaction name="actionCreate_Plate_Map"/>
-   </widget>
-   <addaction name="menuActions"/>
-  </widget>
-  <widget class="QStatusBar" name="statusbar"/>
   <widget class="QToolBar" name="toolBar">
    <property name="windowTitle">
     <string>toolBar</string>
@@ -135,10 +99,10 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
-   <addaction name="actionSave"/>
-   <addaction name="actionLoad"/>
-   <addaction name="actionGenerate_GWL"/>
-   <addaction name="actionCreate_Plate_Map"/>
+   <addaction name="actionSave" />
+   <addaction name="actionLoad" />
+   <addaction name="actionGenerate_GWL" />
+   <addaction name="actionCreate_Plate_Map" />
   </widget>
   <action name="actionSave">
    <property name="icon">
@@ -188,7 +152,7 @@
   </customwidget>
  </customwidgets>
  <resources>
-  <include location="../../resources.qrc"/>
+  <include location="../../resources.qrc" />
  </resources>
- <connections/>
+ <connections />
 </ui>

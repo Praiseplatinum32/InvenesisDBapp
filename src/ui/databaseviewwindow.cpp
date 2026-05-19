@@ -24,6 +24,7 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , viewModel(std::make_unique<MainWindowViewModel>(this))
 {
     ui->setupUi(this);
 
@@ -34,7 +35,24 @@ MainWindow::MainWindow(QWidget *parent)
     }
 
     showMaximized();
-    setCentralWidget(ui->splitter);
+    
+    mainStackedWidget = new QStackedWidget(this);
+    
+    QWidget* databasePage = new QWidget(this);
+    QVBoxLayout* dbLayout = new QVBoxLayout(databasePage);
+    dbLayout->setContentsMargins(0, 0, 0, 0);
+    dbLayout->addWidget(ui->splitter);
+    
+    tecanView = new TecanWindow(this);
+    connect(tecanView, &TecanWindow::backRequested, this, [this](){
+        mainStackedWidget->setCurrentIndex(0);
+        ui->toolBar->show();
+    });
+    
+    mainStackedWidget->addWidget(databasePage);
+    mainStackedWidget->addWidget(tecanView);
+    
+    setCentralWidget(mainStackedWidget);
     setWindowTitle("Invenesis Database Manager");
 
     // Set initial splitter proportions
@@ -77,45 +95,40 @@ MainWindow::MainWindow(QWidget *parent)
 
     // ✅  setup the hide done checkbox
     hideDoneCheckBox = new QCheckBox("Hide done", this);
-    hideDoneCheckBox->setVisible(true);                  // only for test_requests
+    hideDoneCheckBox->setVisible(false);                  // only for test_requests
     ui->statusbar->addPermanentWidget(hideDoneCheckBox);  // right side of status bar
     connect(hideDoneCheckBox, &QCheckBox::toggled, this, [this](bool checked){
-        proxyModel->setHideDone(checked);
+        viewModel->getProxyModel()->setHideDone(checked);
     });
 
-
-    // Initialize CustomProxyModel for dual-column filtering
-    proxyModel = new CustomProxyModel(this);
-    proxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
-
-    ui->dataTableView->setModel(proxyModel);
+    ui->dataTableView->setModel(viewModel->getProxyModel());
 
     // Connect searchLineEdit with corresponding combo box:
     connect(ui->searchLineEdit, &QLineEdit::textChanged, this, [=](const QString &text){
-        int column = ui->columnComboBox->currentData().toInt();
-        proxyModel->setFilter1(text, column);
+        int column = (ui->columnComboBox->currentIndex() <= 0) ? -1 : ui->columnComboBox->currentData().toInt();
+        viewModel->getProxyModel()->setFilter1(text, column);
     });
 
     // Connect columnComboBox to update filtering immediately:
     connect(ui->columnComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [=](int index) {
                 QString currentText = ui->searchLineEdit->text();
-                int column = ui->columnComboBox->itemData(index).toInt();
-                proxyModel->setFilter1(currentText, column);
+                int column = (index <= 0) ? -1 : ui->columnComboBox->itemData(index).toInt();
+                viewModel->getProxyModel()->setFilter1(currentText, column);
             });
 
     // Connect searchLineEdit_2 with corresponding combo box_2:
     connect(ui->searchLineEdit_2, &QLineEdit::textChanged, this, [=](const QString &text) {
-        int column = ui->columnComboBox_2->currentData().toInt();
-        proxyModel->setFilter2(text, column);
+        int column = (ui->columnComboBox_2->currentIndex() <= 0) ? -1 : ui->columnComboBox_2->currentData().toInt();
+        viewModel->getProxyModel()->setFilter2(text, column);
     });
 
     // Connect columnComboBox_2 with corresponding search line edit:
     connect(ui->columnComboBox_2, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [=](int index) {
                 QString currentText = ui->searchLineEdit_2->text();
-                int column = ui->columnComboBox_2->itemData(index).toInt();
-                proxyModel->setFilter2(currentText, column);
+                int column = (index <= 0) ? -1 : ui->columnComboBox_2->itemData(index).toInt();
+                viewModel->getProxyModel()->setFilter2(currentText, column);
             });
 
 
@@ -131,6 +144,7 @@ MainWindow::MainWindow(QWidget *parent)
     // Open Login Dialog
     LoginDialog loginDialog;
     connect(&loginDialog, &LoginDialog::loginSuccessful, this, &MainWindow::setUserRole);
+    connect(viewModel.get(), &MainWindowViewModel::roleChanged, this, &MainWindow::setupTreeView);
 
     if (loginDialog.exec() != QDialog::Accepted) {
         qApp->quit();
@@ -185,25 +199,17 @@ void MainWindow::onTableSelected(const QItemSelection &selected, const QItemSele
     qDebug() << "Switching to table:" << tableName;
 
 
-    currentTableModel = std::make_unique<QSqlTableModel>(this);
-    currentTableModel->setTable(tableName);
-    currentTableModel->select();
+    viewModel->loadTable(tableName);
 
     // Setup proxy model
-    proxyModel->setSourceModel(currentTableModel.get());
-    ui->dataTableView->setModel(proxyModel);
-    ui->dataTableView->setSelectionModel(new QItemSelectionModel(proxyModel));
+    ui->dataTableView->setModel(viewModel->getProxyModel());
+    ui->dataTableView->setSelectionModel(new QItemSelectionModel(viewModel->getProxyModel()));
 
     if (tableName == "test_requests") {
         hideDoneCheckBox->setVisible(true);
-
-        int doneCol = currentTableModel->fieldIndex("done"); // -1 if not found
-        proxyModel->setDoneColumn(doneCol);
-        proxyModel->setHideDone(hideDoneCheckBox->isChecked());
+        viewModel->getProxyModel()->setHideDone(hideDoneCheckBox->isChecked());
     } else {
         hideDoneCheckBox->setVisible(false);
-        proxyModel->setHideDone(false);
-        proxyModel->setDoneColumn(-1);
     }
 
     // Populate first combo box
@@ -212,8 +218,8 @@ void MainWindow::onTableSelected(const QItemSelection &selected, const QItemSele
     ui->columnComboBox_2->clear();
     ui->columnComboBox_2->addItem("All Columns", -1);
 
-    for (int i = 0; i < currentTableModel->columnCount(); ++i) {
-        QString columnName = currentTableModel->headerData(i, Qt::Horizontal).toString();
+    for (int i = 0; i < viewModel->getTableModel()->columnCount(); ++i) {
+        QString columnName = viewModel->getTableModel()->headerData(i, Qt::Horizontal).toString();
         ui->columnComboBox->addItem(columnName, i);
         ui->columnComboBox_2->addItem(columnName, i);
     }
@@ -221,9 +227,9 @@ void MainWindow::onTableSelected(const QItemSelection &selected, const QItemSele
     ui->dataTableView->resizeColumnsToContents();
 
     // Scroll to last row
-    int lastRow = currentTableModel->rowCount() - 1;
+    int lastRow = viewModel->getTableModel()->rowCount() - 1;
     if (lastRow >= 0) {
-        QModelIndex lastIndex = proxyModel->index(lastRow, 0);
+        QModelIndex lastIndex = viewModel->getProxyModel()->index(lastRow, 0);
         ui->dataTableView->scrollTo(lastIndex, QAbstractItemView::PositionAtBottom);
     }
 
@@ -251,21 +257,20 @@ void MainWindow::on_actionAdd_triggered()
 
 void MainWindow::refreshTableView()
 {
-    if (!currentTableModel) return;
+    if (!viewModel->getTableModel()) return;
 
-    currentTableModel->select();  //Refresh the table model
-    ui->dataTableView->setModel(proxyModel);
+    viewModel->refreshTable();
+    ui->dataTableView->setModel(viewModel->getProxyModel());
 
     ui->dataTableView->resizeColumnsToContents();
 
     //Ensure the last column stretches to fill available space
     ui->dataTableView->horizontalHeader()->setStretchLastSection(true);
 
-
     //Scroll to the last row
-    int lastRow = currentTableModel->rowCount() - 1;
+    int lastRow = viewModel->getTableModel()->rowCount() - 1;
     if (lastRow >= 0) {
-        QModelIndex lastIndex = currentTableModel->index(lastRow, 0);
+        QModelIndex lastIndex = viewModel->getTableModel()->index(lastRow, 0);
         ui->dataTableView->scrollTo(lastIndex, QAbstractItemView::PositionAtBottom);
     }
     updateTableStatistics();
@@ -273,28 +278,27 @@ void MainWindow::refreshTableView()
 
 void MainWindow::autoRefreshTableView()
 {
-    if (!currentTableModel) return;
+    if (!viewModel->getTableModel()) return;
 
     QItemSelectionModel *selectionModel = ui->dataTableView->selectionModel();
     QModelIndexList selectedIndexes = selectionModel->selectedRows();  // ✅ Get selected rows
 
     if (!selectedIndexes.isEmpty()) {
-        //qDebug() << "[Auto-Refresh] Skipped: Rows are selected.";
         return;  // ✅ Skip refresh if there are selected rows
     }
 
-    int previousRowCount = currentTableModel->rowCount();
-    currentTableModel->select();  // ✅ Refresh table model
-    int newRowCount = currentTableModel->rowCount();
+    int previousRowCount = viewModel->getTableModel()->rowCount();
+    viewModel->refreshTable();
+    int newRowCount = viewModel->getTableModel()->rowCount();
 
     if (previousRowCount != newRowCount) {
-        ui->dataTableView->setModel(proxyModel);
+        ui->dataTableView->setModel(viewModel->getProxyModel());
 
         ui->dataTableView->resizeColumnsToContents();
         ui->dataTableView->horizontalHeader()->setStretchLastSection(true);
 
         if (newRowCount > 0) {
-            QModelIndex lastIndex = currentTableModel->index(newRowCount - 1, 0);
+            QModelIndex lastIndex = viewModel->getTableModel()->index(newRowCount - 1, 0);
             ui->dataTableView->scrollTo(lastIndex, QAbstractItemView::PositionAtBottom);
         }
     }
@@ -308,23 +312,19 @@ void MainWindow::on_refreshTableButton_triggered()
 
 void MainWindow::setUserRole(const QString &role)
 {
-    currentUserRole = role;
-    qDebug() << "User logged in as:" << currentUserRole;
-    bool isAdmin = (currentUserRole == "admin");
+    viewModel->setUserRole(role);
+    qDebug() << "User logged in as:" << viewModel->getUserRole();
     if (ui->actionAdminResetPassword) {
-        ui->actionAdminResetPassword->setVisible(isAdmin);
-        ui->actionAdminResetPassword->setEnabled(isAdmin);
+        ui->actionAdminResetPassword->setVisible(viewModel->isAdmin());
+        ui->actionAdminResetPassword->setEnabled(viewModel->isAdmin());
     }
-
-    // ✅ Rebuild the tree view to apply role-based restrictions
-    setupTreeView();
 }
 
 
 void MainWindow::on_actionAdminResetPassword_triggered()
 {
     // Extra safety check (in case someone changes visibility logic later)
-    if (currentUserRole != "admin") {
+    if (!viewModel->isAdmin()) {
         QMessageBox::warning(this, "Permission denied",
                              "Only administrators can reset user passwords.");
         return;
@@ -338,20 +338,7 @@ void MainWindow::on_actionAdminResetPassword_triggered()
 
 void MainWindow::setupTreeView()
 {
-    QStringList allTables = QSqlDatabase::database().tables();
-    QStringList filteredTables;
-
-    // ✅ Apply Role-Based Table Visibility
-    if (currentUserRole == "admin") {
-        filteredTables = allTables;
-    }
-    else if (currentUserRole == "userplus") {
-        filteredTables = allTables;
-        filteredTables.removeOne("users");  //Hide "users" table
-    }
-    else if (currentUserRole == "user") {
-        filteredTables = {"test_requests", "bottles", "solutions"};  // ✅ Show only test_requests, bottles & solutions
-    }
+    QStringList filteredTables = viewModel->getVisibleTables();
 
     // ✅ Create a new model for the tree
     QStandardItemModel* tableModel = new QStandardItemModel(this);
@@ -375,15 +362,15 @@ void MainWindow::setupTreeView()
 
 void MainWindow::updateTableStatistics()
 {
-    if (!currentTableModel) {
+    if (!viewModel->getTableModel()) {
         rowCountLabel->setText("Rows: 0");
         columnCountLabel->setText("Columns: 0");
         selectedRowCountLabel->setText("Selected Rows: 0");
         return;
     }
 
-    int rowCount = currentTableModel->rowCount();
-    int columnCount = currentTableModel->columnCount();
+    int rowCount = viewModel->getTableModel()->rowCount();
+    int columnCount = viewModel->getTableModel()->columnCount();
     int selectedRows = ui->dataTableView->selectionModel()->selectedRows().count();
 
     rowCountLabel->setText(QString("Rows: %1").arg(rowCount));
@@ -393,60 +380,28 @@ void MainWindow::updateTableStatistics()
 
 void MainWindow::on_actionexportCsvButton_triggered()
 {
-    if (!currentTableModel) {
-        QMessageBox::warning(this, "Export Error", "No table loaded to export.");
-        return;
-    }
-
     // ✅ Open file dialog with "Documents" folder as default
     QString defaultPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
     QString filePath = QFileDialog::getSaveFileName(this, "Save CSV", defaultPath + "/export.csv", "CSV Files (*.csv)");
 
     if (filePath.isEmpty()) return;  // User canceled
 
-    QFile file(filePath);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QMessageBox::critical(this, "Export Error", "Failed to open file for writing.");
-        return;
-    }
-
-    QTextStream stream(&file);
-
-    // ✅ Get column headers
-    QStringList headers;
-    for (int col = 0; col < currentTableModel->columnCount(); ++col) {
-        headers << currentTableModel->headerData(col, Qt::Horizontal).toString();
-    }
-    stream << headers.join(",") << "\n";  // ✅ Write headers to CSV
-
-    // ✅ Get selected rows and map from proxy model to source model
+    // Get selected rows and map from proxy model to source model
     QItemSelectionModel *selectionModel = ui->dataTableView->selectionModel();
     QModelIndexList selectedIndexes = selectionModel->selectedRows();
 
-    qDebug() << "[DEBUG] Selected rows in proxy model:" << selectedIndexes;
-
     QList<int> selectedRows;
     foreach(const QModelIndex &proxyIndex, selectedIndexes) {
-        int sourceRow = proxyModel->mapToSource(proxyIndex).row();  // ✅ Convert to source model row
+        int sourceRow = viewModel->getProxyModel()->mapToSource(proxyIndex).row();
         selectedRows.append(sourceRow);
     }
 
-    qDebug() << "Exporting selected rows:" << selectedRows;  // ✅ Debugging
-
-    // ✅ Export rows (either selected or full table)
-    int rowCount = currentTableModel->rowCount();
-    for (int row = 0; row < rowCount; ++row) {
-        // ✅ If selection exists, only export selected rows
-        if (!selectedRows.isEmpty() && !selectedRows.contains(row)) continue;
-
-        QStringList rowValues;
-        for (int col = 0; col < currentTableModel->columnCount(); ++col) {
-            rowValues << currentTableModel->index(row, col).data().toString();
-        }
-        stream << rowValues.join(",") << "\n";  // ✅ Write row to CSV
+    QString errOut;
+    if (!viewModel->exportCsv(filePath, selectedRows, &errOut)) {
+        QMessageBox::critical(this, "Export Error", errOut);
+        return;
     }
 
-    file.close();
     QMessageBox::information(this, "Export Successful", "Data exported successfully to:\n" + filePath);
 }
 
@@ -454,14 +409,14 @@ void MainWindow::updateFilterCriteria()
 {
     // Fetch the filter texts and selected columns
     QString filterText1 = ui->searchLineEdit->text();
-    int column1 = ui->columnComboBox->currentData().toInt();
+    int column1 = (ui->columnComboBox->currentIndex() <= 0) ? -1 : ui->columnComboBox->currentData().toInt();
 
     QString filterText2 = ui->searchLineEdit_2->text();
-    int column2 = ui->columnComboBox_2->currentData().toInt();
+    int column2 = (ui->columnComboBox_2->currentIndex() <= 0) ? -1 : ui->columnComboBox_2->currentData().toInt();
 
     // Set filters on the proxy model
-    proxyModel->setFilter1(filterText1, column1);
-    proxyModel->setFilter2(filterText2, column2);
+    viewModel->getProxyModel()->setFilter1(filterText1, column1);
+    viewModel->getProxyModel()->setFilter2(filterText2, column2);
 }
 
 
@@ -469,21 +424,17 @@ void MainWindow::on_actionTecan_triggered()
 {
     QModelIndexList selectedRows = ui->dataTableView->selectionModel()->selectedRows();
 
-    // Create Tecan Window instance
-    TecanWindow *tecanWindow = new TecanWindow(this);
-
-    // Pass selected test request IDs (assuming first column contains request_id)
     if (!selectedRows.isEmpty()) {
         QStringList selectedRequestIDs;
         foreach(const QModelIndex &index, selectedRows) {
-            QString requestId = proxyModel->data(proxyModel->index(index.row(), 0)).toString();
+            QString requestId = viewModel->getProxyModel()->data(viewModel->getProxyModel()->index(index.row(), 0)).toString();
             selectedRequestIDs.append(requestId);
         }
-        tecanWindow->loadTestRequests(selectedRequestIDs);
+        tecanView->loadTestRequests(selectedRequestIDs);
     }
 
-    // Show Tecan window
-    tecanWindow->show();
+    ui->toolBar->hide();
+    mainStackedWidget->setCurrentIndex(1);
 }
 
 

@@ -28,7 +28,7 @@ StandardSelectionDialog::~StandardSelectionDialog()
 
 void StandardSelectionDialog::loadStandardJson()
 {
-    QFile file(":/standardjson/jsonfile/standards_matrix.json");
+    QFile file(":/data/resources/data/standards_matrix.json");
     if (!file.open(QIODevice::ReadOnly)) {
         qWarning() << "Failed to load standard JSON resource.";
         ui->comboBox->addItem("Error loading standards");

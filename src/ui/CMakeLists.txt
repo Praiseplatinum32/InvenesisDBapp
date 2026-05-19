@@ -11,6 +11,8 @@ add_library(ui STATIC
     loadexperimentdialog.cpp
     loadexperimentdialog.h
     loadexperimentdialog.ui
+    MainWindowViewModel.cpp
+    MainWindowViewModel.h
 )
 
 # Link dependencies

@@ -1,0 +1,1684 @@
+{
+  "INV-T-001": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 0.2,
+    "total_well_vol_µl": 16.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-004": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 40.0,
+    "total_well_vol_µl": 4000.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-005": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 0.2,
+    "total_well_vol_µl": 16.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-006": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 0.75,
+    "total_well_vol_µl": 16.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-009": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 2.0,
+    "total_well_vol_µl": 200.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-010": {
+    "concentration_unit": "umol/m2",
+    "is_tarsal": true,
+    "vol_from_daughter_µl": 3.0,
+    "well_area_m2": 3.8484510006474965e-05,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-011": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 0.65,
+    "total_well_vol_µl": 200.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-012": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 4.0,
+    "total_well_vol_µl": 400.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-015": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 4.5,
+    "total_well_vol_µl": 450.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-016": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 1.0,
+    "total_well_vol_µl": 200.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-017": {
+    "concentration_unit": "umol/m2",
+    "is_tarsal": true,
+    "vol_from_daughter_µl": 1.0,
+    "well_area_m2": 9e-06,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-018": {
+    "concentration_unit": "umol/m2",
+    "is_tarsal": true,
+    "vol_from_daughter_µl": 3.0,
+    "well_area_m2": 3.8484510006474965e-05,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-019": {
+    "concentration_unit": "umol/m2",
+    "is_tarsal": true,
+    "vol_from_daughter_µl": 3.0,
+    "well_area_m2": 3.8484510006474965e-05,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-020": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 20.0,
+    "total_well_vol_µl": 2000.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-021": {
+    "concentration_unit": "umol/m2",
+    "is_tarsal": true,
+    "vol_from_daughter_µl": 360.0,
+    "well_area_m2": 0.013273228961416876,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-022": {
+    "concentration_unit": "umol/m2",
+    "is_tarsal": true,
+    "vol_from_daughter_µl": 10.0,
+    "well_area_m2": 0.00022431756944794515,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-025": {
+    "concentration_unit": "umol/m2",
+    "is_tarsal": true,
+    "vol_from_daughter_µl": 100.0,
+    "well_area_m2": 0.002290221044466959,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-027": {
+    "concentration_unit": "nmol/g",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 150.0,
+    "total_well_vol_µl": 750.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-028": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 6.4,
+    "total_well_vol_µl": 100.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-028_BM": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 500.0,
+    "total_well_vol_µl": 0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-029": {
+    "concentration_unit": "umol/m2",
+    "is_tarsal": true,
+    "vol_from_daughter_µl": 360.0,
+    "well_area_m2": 0.013273228961416876,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-031": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 2.0,
+    "total_well_vol_µl": 200.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-032": {
+    "concentration_unit": "nmol/g",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 3.402,
+    "total_well_vol_µl": 3.5,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-041": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 10.0,
+    "total_well_vol_µl": 2000.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-042": {
+    "concentration_unit": "umol/m2",
+    "is_tarsal": true,
+    "vol_from_daughter_µl": 4.276,
+    "well_area_m2": 3.8484510006474965e-05,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-044": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 0.2,
+    "total_well_vol_µl": 16.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-045": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 0.2,
+    "total_well_vol_µl": 16.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-047": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 2.0,
+    "total_well_vol_µl": 0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  },
+  "INV-T-049": {
+    "concentration_unit": "uM",
+    "is_tarsal": false,
+    "vol_from_daughter_µl": 1.0,
+    "total_well_vol_µl": 100.0,
+    "standards": {
+      "dicyclanil": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "emodepside": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 10.0,
+        "source": "in house"
+      },
+      "fipronil": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fipronil_Sigma": {
+        "top_dose_uM": 500.0,
+        "ec50_uM": 2.0,
+        "source": "in house"
+      },
+      "fluralaner": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 1.0,
+        "source": "in house"
+      },
+      "ivermectin": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.3,
+        "source": "in house"
+      },
+      "levamisol": {
+        "top_dose_uM": 10000.0,
+        "ec50_uM": 50.0,
+        "source": "in house"
+      },
+      "milbemycin oxime": {
+        "top_dose_uM": 100.0,
+        "ec50_uM": 0.5,
+        "source": "in house"
+      },
+      "monepantel": {
+        "top_dose_uM": 1000.0,
+        "ec50_uM": 5.0,
+        "source": "in house"
+      },
+      "thiamethoxam": {
+        "top_dose_uM": 2000.0,
+        "ec50_uM": 20.0,
+        "source": "in house"
+      }
+    }
+  }
+}

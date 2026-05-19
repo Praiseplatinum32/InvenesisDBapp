@@ -4,6 +4,8 @@
 add_library(tecan_integration STATIC
     tecanwindow.cpp
     tecanwindow.h
+    TecanViewModel.cpp
+    TecanViewModel.h
     gwlgenerator.cpp
     gwlgenerator.h
     generategwldialog.cpp
@@ -26,6 +28,9 @@ target_link_libraries(tecan_integration
     PRIVATE
         plate_management
         common
+        DataAccess
+        Services
+        Hardware
 )
 
 # Include directories

@@ -1,39 +1,35 @@
-#ifndef ADDITEMDIALOG_H
-#define ADDITEMDIALOG_H
+#pragma once
 
 #include <QDialog>
-#include <QSqlTableModel>
+#include <QVector>
 #include <QTableWidget>
+#include "../data_access/ItemDao.h"
 
-namespace Ui {
-class AddItemDialog;
-}
+namespace Ui { class AddItemDialog; }
 
 class AddItemDialog : public QDialog
 {
     Q_OBJECT
-
 public:
     explicit AddItemDialog(const QString &tableName, QWidget *parent = nullptr);
     ~AddItemDialog();
 
 signals:
-    void dataInserted(); // Signal to refresh main window table
+    void dataInserted();
 
 private slots:
     void nextPage();
     void prevPage();
-    void submitData();
     void pasteFromClipboard();
+    void submitData();
 
 private:
+    void setupPages();
+    QTableWidget* currentPageTableWidget() const;
+
     Ui::AddItemDialog *ui;
     QString currentTable;
-    QStringList columnNames;
-    QList<QTableWidget *> columnTables;
 
-    void setupPages();
-    void insertIntoDatabase();
+    QVector<ColumnMeta> columns;
+    QVector<QTableWidget*> columnTables;
 };
-
-#endif // ADDITEMDIALOG_H

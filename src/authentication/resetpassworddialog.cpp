@@ -1,9 +1,7 @@
 #include "resetpassworddialog.h"
 #include "ui_resetpassworddialog.h"
-#include "qtbcrypt.h"
 #include <QMessageBox>
-#include <QSqlQuery>
-
+#include "../data_access/AuthenticationDao.h"
 ResetPasswordDialog::ResetPasswordDialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::ResetPasswordDialog)
@@ -53,35 +51,18 @@ void ResetPasswordDialog::accept()
     QString oldPassword = ui->oldPasswordLineEdit->text();
     QString newPassword = ui->newPasswordLineEdit->text();
 
-    // Check  if user exists and old password is correct
-    QSqlQuery query;
-    query.prepare("SELECT password_hash FROM users WHERE username = :username");
-    query.bindValue(":username", username);
-
-    if(query.exec() && query.next()) {
-        QString stored_hash = query.value(0).toString();
-
-        if(QtBCrypt::hashPassword(oldPassword, stored_hash) == stored_hash) {
-            // Old password correct, hash new password
-            QString newSalt = QtBCrypt::generateSalt();
-            QString newHashedPassword = QtBCrypt::hashPassword(newPassword, newSalt);
-
-            // Update database clearly with new hashed password
-            QSqlQuery updateQuery;
-            updateQuery.prepare("UPDATE users SET password_hash = :newHash WHERE username = :username");
-            updateQuery.bindValue(":newHash", newHashedPassword);
-            updateQuery.bindValue(":username", username);
-
-            if(updateQuery.exec()) {
-                QMessageBox::information(this, "Success", "Password has been changed successfully.");
-                QDialog::accept();  // clearly close dialog with success
-            } else {
-                QMessageBox::critical(this, "Error", "Failed to update password in database.");
-            }
-        } else {
-            QMessageBox::warning(this, "Error", "Old password is incorrect.");
-        }
+    AuthenticationDao dao;
+    QString err;
+    if (dao.updatePassword(username, oldPassword, newPassword, &err)) {
+        QMessageBox::information(this, "Success", "Password has been changed successfully.");
+        QDialog::accept();  // clearly close dialog with success
     } else {
-        QMessageBox::warning(this, "Error", "Username not found.");
+        if (err == "Old password is incorrect.") {
+            QMessageBox::warning(this, "Error", err);
+        } else if (err == "User not found.") {
+            QMessageBox::warning(this, "Error", "Username not found.");
+        } else {
+            QMessageBox::critical(this, "Error", "Failed to update password in database:\n" + err);
+        }
     }
 }

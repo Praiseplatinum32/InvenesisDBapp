@@ -1,23 +1,19 @@
 #include "loadexperimentdialog.h"
 #include "ui_loadexperimentdialog.h"
-#include <QSqlQuery>
 #include <QSqlError>
 #include <QMessageBox>
+#include "../services/ExperimentManager.h"
 
 LoadExperimentDialog::LoadExperimentDialog(QWidget *parent) :
     QDialog(parent),
-    ui(new Ui::LoadExperimentDialog),
-    experimentModel(new QSqlQueryModel(this))
+    ui(new Ui::LoadExperimentDialog)
 {
     ui->setupUi(this);
     setWindowTitle("Load Experiment");
 
     // Load experiment list
-    experimentModel->setQuery(R"(
-        SELECT experiment_id, experiment_code, project_code, date_created, user
-        FROM experiments
-        ORDER BY date_created DESC
-    )");
+    ExperimentManager manager;
+    experimentModel = manager.fetchExperimentListModel(this);
 
     if (experimentModel->lastError().isValid()) {
         QMessageBox::critical(this, "Error", "Failed to load experiments:\n" + experimentModel->lastError().text());

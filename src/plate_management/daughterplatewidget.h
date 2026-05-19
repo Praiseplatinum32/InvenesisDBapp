@@ -75,11 +75,12 @@ private:                                 /* helpers */
     const QStringList &rowLabels() const;
     /// Convenience: current column count (12 or 24).
     int columnCount() const;
+    /// Gets well size dynamically based on plate format
+    int getWellSize() const;
 
 private:                                 /* constants */
     static constexpr int   kColumns96    = 12;
     static constexpr int   kColumns384   = 24;
-    static constexpr int   kWellSizePx   = 40;
     static const QStringList kRows96;
     static const QStringList kRows384;
 

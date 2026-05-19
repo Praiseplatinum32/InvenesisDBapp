@@ -1,0 +1,12 @@
+{
+    "Default QC Plate": {
+        "C": {
+            "standard": "Standard Compound A",
+            "conc": 1000
+        },
+        "F": {
+            "standard": "Standard Compound B",
+            "conc": 1000
+        }
+    }
+}

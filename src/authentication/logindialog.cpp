@@ -1,17 +1,15 @@
 #include "logindialog.h"
 #include "ui_logindialog.h"
-#include <QtSql/QSqlQuery>
+
 #include <QMessageBox>
 #include <QPushButton>
 #include <QDebug>
 #include <QSettings>
-#include <qsqlerror.h>
+
 
 #include "common/ClickableLabel.h"
 #include "resetpassworddialog.h"
-#include "qtbcrypt.h"
-
-
+#include "../data_access/AuthenticationDao.h"
 LoginDialog::LoginDialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::LoginDialog)
@@ -77,43 +75,21 @@ void LoginDialog::loginButton_clicked() {
     QString username = ui->usernameLineEdit->text();
     QString password = ui->passwordLineEdit->text();
 
-    // Debug: Check database connection
-    QSqlDatabase db = QSqlDatabase::database();
-    if (!db.isOpen()) {
-        QMessageBox::critical(this, "Database Error", "Database connection is not open!");
-        return;
-    }
 
-    QSqlQuery query;
-    query.prepare("SELECT password_hash, role FROM users WHERE username = :username");
-    query.bindValue(":username", username);
 
-    qDebug() << "Executing query for username:" << username;
-    
-    if(query.exec()) {
-        qDebug() << "Query executed successfully";
-        if(query.next()) {
-            qDebug() << "User found in database";
-            QString stored_hash = query.value(0).toString();
-
-            if(QtBCrypt::hashPassword(password, stored_hash) == stored_hash) {
-                userRole = query.value(1).toString();
-                emit loginSuccessful(userRole);  // Emit the role upon success
-                // ✅ Save username for next login
-                saveLastUsername(username);
-                accept();  // Closes the dialog successfully
-            } else {
-                qDebug() << "Password verification failed";
-                QMessageBox::warning(this, "Login Error", "Incorrect username or password.");
-            }
-        } else {
-            qDebug() << "No user found with username:" << username;
-            QMessageBox::warning(this, "Login Error", "User not found.");
-        }
+    AuthenticationDao dao;
+    QString err;
+    if (dao.authenticateUser(username, password, &userRole, &err)) {
+        emit loginSuccessful(userRole);  // Emit the role upon success
+        // ✅ Save username for next login
+        saveLastUsername(username);
+        accept();  // Closes the dialog successfully
     } else {
-        qDebug() << "Query execution failed:" << query.lastError().text();
-        QMessageBox::critical(this, "Database Error",
-            QString("Query failed: %1").arg(query.lastError().text()));
+        if (err == "Incorrect password." || err == "User not found.") {
+            QMessageBox::warning(this, "Login Error", "Incorrect username or password.");
+        } else {
+            QMessageBox::critical(this, "Database Error", QString("Query failed: %1").arg(err));
+        }
     }
 }
 
